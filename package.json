@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/marked": "^5.0.2",
+    "date-fns": "^4.1.0",
+    "highlight.js": "^11.11.1",
+    "marked": "^16.4.0"
+  }
+}
