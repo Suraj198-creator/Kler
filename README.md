@@ -13,6 +13,7 @@ pnpm dev
 # or
 bun dev
 ```
+<img width="5108" height="5388" alt="Untitled diagram-2025-11-04-220806" src="https://github.com/user-attachments/assets/aba4ce31-ab54-40ff-8ef2-d4b82b664dce" />
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
