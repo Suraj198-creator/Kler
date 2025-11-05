@@ -1,570 +1,499 @@
 # KlerAI
 
-> Full-stack AI chat application with RAG capabilities, dual-track memory management, and intelligent tool orchestration
+> AI chat application with dual-track memory management and multi-turn reasoning
+
+**Reduces token costs by ~60% whilst enabling complex multi-step workflows**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Claude](https://img.shields.io/badge/Claude_AI-191919?style=flat&logo=anthropic&logoColor=white)](https://www.anthropic.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 
 ---
 
-## 🌟 Key Features
+## What is KlerAI?
 
-### **Dual-Track Memory Architecture (~60% Token Reduction)**
-- Maintains parallel histories: **Full** (complete archive) + **Summarised** (sent to AI)
-- Intelligent context retrieval when summaries are insufficient
-- Reduces API costs whilst maintaining conversation accuracy
+**KlerAI is an AI-powered coding assistant designed to help developers write code efficiently by combining API documentation and GitHub repositories.**
 
-### **Multi-Turn Reasoning Engine**
-- Supports complex workflows: Search → Retrieve docs → Synthesise response
-- Max 15 turns with automatic completion detection
-- Enables sophisticated problem-solving across multiple data sources
+Instead of manually searching through documentation, switching between tabs, and piecing together examples, KlerAI:
 
-### **Advanced RAG Pipeline**
-- **Hybrid Search**: Combines BM25 (keyword) + Vector (semantic) search
-- **Context7 Integration**: External API documentation retrieval
-- **Claude-Powered Reranking**: Intelligent result prioritisation
-- **Reciprocal Rank Fusion**: Optimal result merging
+✅ **Retrieves relevant API documentation** automatically from Context7's database
+✅ **Searches GitHub repositories** for real-world implementation examples
+✅ **Synthesises complete solutions** by combining docs + code examples
+✅ **Maintains conversation context** without expensive token costs
 
-### **GitHub MCP Integration**
-- Dynamic tool integration via Model Context Protocol
-- Docker-based GitHub server with repository search capabilities
-- Automatic tool result summarisation
+### Use Cases
 
-### **Credit-Based Usage System**
-- Fine-grained cost tracking per tool usage
-- Transparent pricing: Base query + tools
-- Stripe integration for subscriptions and one-time purchases
+**"How do I implement Stripe webhooks?"**
+→ Fetches Stripe API docs + searches GitHub for webhook examples → provides complete implementation
+
+**"Show me how to authenticate with Twitter ads API"**
+→ Retrieves X API OAuth documentation + finds working code samples → explains setup with examples
+
+**"How to use OpenAI's streaming API in Python?"**
+→ Gets OpenAI API docs + searches for streaming implementations → provides working code
+
+**Perfect for**: Building integrations, learning new APIs, rapid prototyping, and implementation guidance
 
 ---
 
-## 🏗️ Architecture Overview
+## The Problem
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        User Request                              │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                   FastAPI Backend (Python)                       │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │            ChatService (Turn Loop Manager)                │  │
-│  │  • Dual-track history (full + summarised)                │  │
-│  │  • ID-based message tracking (q1, q1-r, q1-t1)           │  │
-│  │  • Multi-turn orchestration (max 15 turns)               │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                              ↓                                   │
-│  ┌─────────────────────┬──────────────────┬──────────────────┐ │
-│  │  retrieve_full      │  retrieve_doc    │  GitHub MCP      │ │
-│  │  _context           │  umentation      │  Tools           │ │
-│  │                     │                  │                  │ │
-│  │  • Lookup by ID     │  • Context7 API  │  • Docker-based  │ │
-│  │  • Full history     │  • Hybrid search │  • Dynamic tools │ │
-│  │    retrieval        │  • BM25 + Vector │  • Auto-summary  │ │
-│  └─────────────────────┴──────────────────┴──────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│              Next.js Frontend (TypeScript + React)               │
-│  • Real-time streaming (SSE)                                     │
-│  • Markdown rendering with syntax highlighting                  │
-│  • Supabase authentication                                       │
-│  • Credit balance tracking                                       │
-└─────────────────────────────────────────────────────────────────┘
-```
+When building AI chat applications, you face a dilemma:
 
-### How Dual-Track Memory Works
+**Option 1**: Send full conversation history → Accurate but expensive
+**Option 2**: Summarise everything → Cheap but loses critical details
 
-**Problem**: Sending entire conversation histories to AI APIs is expensive
-**Solution**: Maintain two parallel tracks
-
-| Track | Content | Usage |
-|-------|---------|-------|
-| **Full** | Complete messages, tool results (5000+ chars) | Archive for retrieval |
-| **Summarised** | Claude-generated summaries (80-200 chars) | Sent to API |
-
-**Example**:
-```
-Full Track:        [ID:q1-r] 3500 characters of OAuth implementation code
-Summarised Track:  [ID:q1-r-sum, ref:q1-r] "Explained OAuth2 flow with code"
-Token Savings:     ~60% reduction
-```
-
-When the AI needs full details, it calls `retrieve_full_context` tool with the ID reference.
+Most solutions force you to choose one. **KlerAI does both.**
 
 ---
 
-## 🚀 Getting Started
+## The Solution: Dual-Track Memory
 
-### Prerequisites
+KlerAI maintains **two parallel conversation histories** for every user:
 
-- **Node.js** 18+ and npm
-- **Python** 3.11+
-- **Docker** (for GitHub MCP server)
-- **Supabase** account (for auth and database)
-- API Keys:
-  - [Anthropic Claude](https://console.anthropic.com/)
-  - [VoyageAI](https://www.voyageai.com/)
-  - [Context7](https://context7.com/)
-  - [GitHub Personal Access Token](https://github.com/settings/tokens)
-
-### Installation
-
-#### 1. Clone the repository
-```bash
-git clone https://github.com/yourusername/klerAI.git
-cd klerAI
+```
+┌─────────────────────────────────────────────────────────┐
+│                   USER CONVERSATION                      │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  TRACK 1: FULL HISTORY                                  │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)  │
+│  └─ [ID:q1-r] Assistant: (3500 char implementation)    │
+│                                                          │
+│  TRACK 2: SUMMARISED HISTORY (sent to AI)              │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"    │
+│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"    │
+│                                                          │
+│  TOKEN SAVINGS: ~60%                                     │
+└─────────────────────────────────────────────────────────┘
 ```
 
-#### 2. Frontend Setup
-```bash
-cd kler
-npm install
+### How It Works
+
+1. **Every message gets a unique ID** (q1, q1-r, q1-t1)
+2. **Full history is archived** but never sent to the AI
+3. **Summarised version is sent** to Claude for context
+4. **When AI needs details**, it calls `retrieve_full_context` with the ID
+
+**Result**: Fast, cheap context scanning + precise retrieval when needed
+
+---
+
+## Architecture: Multi-Turn Reasoning Loop
+
+KlerAI uses a **turn-based orchestration loop** that enables complex workflows:
+
+### Example Query: "How do I implement Stripe webhooks?"
+
 ```
+┌─────────────────────────────────────────────────────────┐
+│ TURN 1: Claude analyses query                           │
+│ └─> Calls retrieve_documentation tool                   │
+│     └─> Context7 API fetches Stripe docs               │
+│     └─> Hybrid search (BM25 + Vector embeddings)       │
+│     └─> Claude reranks top 6 results                   │
+│     └─> Returns documentation                          │
+├─────────────────────────────────────────────────────────┤
+│ TURN 2: Claude searches for code examples               │
+│ └─> Calls search_repositories (GitHub MCP)             │
+│     └─> Searches GitHub via Docker MCP server          │
+│     └─> Finds Stripe webhook examples                  │
+│     └─> Automatically summarises results               │
+├─────────────────────────────────────────────────────────┤
+│ TURN 3: Claude synthesises final response               │
+│ └─> Combines docs + code examples                      │
+│ └─> Provides complete implementation guide             │
+└─────────────────────────────────────────────────────────┘
 
-Create `.env.local`:
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_BACKEND_API_URL=http://localhost:8000
-```
-
-Start development server:
-```bash
-npm run dev
-# Opens on http://localhost:3000
-```
-
-#### 3. Backend Setup
-```bash
-cd kler/backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-Create `backend/.env`:
-```env
-ANTHROPIC_API_KEY=your_anthropic_key
-VOYAGE_API_KEY=your_voyage_key
-GITHUB_KEY=your_github_token
-CONTEXT7_API_KEY=your_context7_key
-
-# Stripe (optional, for payments)
-STRIPE_SECRET_KEY=your_stripe_secret
-STRIPE_WEBHOOK_SECRET=your_webhook_secret
-
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_service_key
-```
-
-Start backend server:
-```bash
-uvicorn app.main:app --reload
-# Runs on http://localhost:8000
-```
-
-#### 4. Database Setup
-
-Create these tables in your Supabase project:
-
-```sql
--- Profiles table
-CREATE TABLE profiles (
-    id UUID REFERENCES auth.users PRIMARY KEY,
-    email TEXT,
-    full_name TEXT,
-    avatar_url TEXT,
-    plan TEXT DEFAULT 'free',
-    credits INTEGER DEFAULT 50,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Conversations table
-CREATE TABLE conversations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES profiles(id),
-    title TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Messages table
-CREATE TABLE messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    conversation_id UUID REFERENCES conversations(id),
-    role TEXT CHECK (role IN ('user', 'assistant')),
-    content TEXT,
-    summary TEXT,
-    message_id TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Credit transactions table
-CREATE TABLE credit_transactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES profiles(id),
-    amount INTEGER,
-    type TEXT,
-    description TEXT,
-    conversation_id UUID,
-    metadata JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+Cost: 5 (base) + 10 (docs) + 3 (GitHub) = 18 credits
+Max turns: 15 (prevents infinite loops)
 ```
 
 ---
 
-## 📖 Usage Examples
+## System Flow Diagram
 
-### Basic Chat Query
-```typescript
-// Frontend (Next.js)
-const response = await fetch('/api/chat/stream', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: "How do I implement Stripe webhooks?",
-    user_id: userId,
-    conversation_id: conversationId
-  })
-});
+See detailed architecture in [TOOL_ORCHESTRATION_FLOW.md](TOOL_ORCHESTRATION_FLOW.md)
 
-const reader = response.body.getReader();
-// Stream events: text_delta, tool_start, tool_complete, done
+### High-Level Flow
+
+```mermaid
+graph TB
+    User[User Query] --> Check{Credit Check}
+    Check -->|Pass| History[Load Dual-Track History]
+    History --> Turn{Turn Loop}
+
+    Turn -->|Max 15 turns| Claude[Claude API]
+    Claude --> Tools{Tool Calls?}
+
+    Tools -->|No| Done[Response Complete]
+    Tools -->|Yes| Execute[Execute Tools]
+
+    Execute --> T1[retrieve_full_context<br/>Lookup by ID]
+    Execute --> T2[retrieve_documentation<br/>RAG Pipeline]
+    Execute --> T3[GitHub MCP<br/>Docker Tools]
+
+    T1 --> Save[Save Results]
+    T2 --> Save
+    T3 --> Save
+
+    Save --> Summarise[Auto-Summarise]
+    Summarise --> Turn
+
+    Done --> Return[Return Response + Summary]
+
+    style Turn fill:#ff9999
+    style Claude fill:#99ccff
+    style T2 fill:#99ff99
 ```
 
-### Multi-Turn Workflow Example
+### Dual-Track Memory Visualisation
 
-**User Query**: "How do I set up OAuth for Twitter ads?"
+```mermaid
+graph LR
+    subgraph "User History"
+        Full["FULL TRACK<br/>Complete archive<br/>NOT sent to Claude"]
+        Summarised["SUMMARISED TRACK<br/>Compressed<br/>SENT to Claude"]
+    end
 
-**Turn 1**: AI calls `retrieve_documentation`
-- Fetches X API documentation from Context7
-- Applies hybrid search (BM25 + Vector)
-- Returns top 6 relevant sections
+    subgraph "Full Track Example"
+        F1["q1: 'How to setup OAuth?'"]
+        F2["q1-t1: (5000 char result)"]
+        F3["q1-r: (3500 char response)"]
+        F1 --> F2 --> F3
+    end
 
-**Turn 2**: AI calls `search_repositories` (GitHub MCP)
-- Searches GitHub for OAuth examples
-- Finds relevant code repositories
+    subgraph "Summarised Track Example"
+        S1["q1: 'How to setup OAuth?'"]
+        S2["q1-t1-sum: 'Searched GitHub'"]
+        S3["q1-r-sum: 'Explained OAuth2'"]
+        S1 --> S2 --> S3
+    end
 
-**Turn 3**: AI synthesises final response
-- Combines documentation + code examples
-- Provides complete implementation guide
+    Full -.-> F1
+    Summarised -.-> S1
 
-**Cost**: 5 (base) + 10 (docs) + 3 (GitHub) = **18 credits**
+    style Full fill:#ffcccc
+    style Summarised fill:#ccffcc
+```
 
 ---
 
-## 🔧 Key Components
+## Three Tool Categories
 
-### Backend (`kler/backend/app/`)
-
-#### `chat_service.py`
-Core orchestration engine managing:
-- Dual-track history per user
-- Turn-based loop (max 15 turns)
-- Tool execution and result summarisation
-- ID generation and tracking
+### 1. retrieve_full_context (Free)
+**Purpose**: Retrieve complete message when summary insufficient
 
 ```python
-user_histories[user_id] = {
-    "full": [],         # Complete archive
-    "summarised": [],   # Sent to Claude
-    "query_counter": 0  # ID generation
-}
+User: "Show me that OAuth code again"
+→ Claude sees summary: "Explained OAuth2 flow"
+→ Realizes needs full content
+→ Calls retrieve_full_context(id="q1-r")
+→ Returns complete 3500-char implementation
 ```
 
-#### `rag_pipeline.py`
-RAG components:
-- **VectorIndex**: Cosine/Euclidean distance with VoyageAI embeddings
-- **BM25Index**: TF-IDF keyword search
-- **Retriever**: Hybrid search with RRF fusion
-- **MCPClient**: GitHub MCP server integration
-- **retrieve_doc()**: Context7 API documentation retrieval
-- **reranker_fn()**: Claude-powered result reranking
+### 2. retrieve_documentation (+10 credits)
+**Purpose**: External API documentation with RAG
 
-#### `main.py`
-FastAPI application with:
-- `/api/chat/stream`: SSE streaming endpoint
-- `/api/load_conversation`: Load history from database
-- Credit system endpoints
-- Stripe payment integration
+**Pipeline**:
+1. Query Context7 API for doc name
+2. Claude selects best document
+3. Chunk documentation by sections
+4. Hybrid search: BM25 (keyword) + Vector (semantic)
+5. Reciprocal Rank Fusion merges results
+6. Claude reranks top 30 → returns top 6
 
-### Frontend (`kler/src/`)
+**Why hybrid search?** Catches both exact terminology AND conceptually similar content
 
-#### `app/dashboard/page.tsx`
-Main chat interface with:
-- Real-time message streaming
-- Tool execution indicators
-- Credit balance display
-- Markdown rendering with syntax highlighting
+### 3. GitHub MCP Tools (+3 credits each)
+**Purpose**: Dynamic repository operations
 
-#### `lib/api.ts`
-Backend communication:
-- `sendMessage()`: Chat API calls
-- `loadConversation()`: Load history
-- SSE event parsing
-
-#### `components/dashboard/`
-- `chat-input.tsx`: Message input with markdown preview
-- `chat-message.tsx`: Message display with code highlighting
-- `sidebar.tsx`: Conversation list
-- `header.tsx`: Navigation with credit balance
+- Runs in Docker via Model Context Protocol
+- Tools: `search_repositories`, `get_file_contents`, `search_code`
+- Results automatically summarised and saved to both tracks
 
 ---
 
-## 💰 Credit System
+## RAG Pipeline Deep Dive
 
-### Pricing Model
+```
+User Query: "Twitter OAuth setup"
+         ↓
+    ┌────────────────┐
+    │ Claude parses  │  → doc_name: "X API"
+    │ query          │  → topic: "OAuth setup"
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Context7 API   │  → Search for "X API"
+    │ search         │  → Returns matching docs
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Claude selects │  → Picks best doc ID
+    │ document       │
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Retrieve full  │  → GET /docs/{id}?topic=OAuth
+    │ documentation  │  → Up to 50,000 tokens
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Chunk by       │  → Split on section delimiters
+    │ section        │
+    └────────────────┘
+         ↓
+    ┌────────────────────────────────┐
+    │ HYBRID SEARCH                  │
+    │                                │
+    │  BM25 Index        Vector Index│
+    │  (keyword)         (semantic)  │
+    │     ↓                  ↓       │
+    │     └─── RRF Fusion ───┘       │
+    └────────────────────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Claude reranks │  → Evaluates relevance
+    │ top 30         │  → Returns top 6 chunks
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Format and     │  → Markdown-formatted docs
+    │ return         │  → Ready for AI reasoning
+    └────────────────┘
+```
+
+**VoyageAI** provides embeddings (voyage-3-large model)
+**BM25** uses TF-IDF for keyword matching
+**Claude** performs intelligent reranking
+
+---
+
+## ID-Based Reference System
+
+Every piece of content gets a unique ID for precise tracking:
+
+```
+QUERIES       → q1, q2, q3, ...
+RESPONSES     → q1-r, q2-r, q3-r, ...
+TOOL RESULTS  → q1-t1, q1-t2, q2-t1, ...
+SUMMARIES     → q1-r-sum (references q1-r)
+               q1-t1-sum (references q1-t1)
+```
+
+### Example Conversation
+
+```
+[ID:q1] User: "How to implement OAuth for Twitter?"
+
+[ID:q1-t1] Tool: retrieve_documentation
+  → Full: 8000 characters of X API documentation
+  → Summary: "Retrieved X API OAuth docs with setup steps"
+
+[ID:q1-t2] Tool: search_repositories
+  → Full: 12 repositories with code examples
+  → Summary: "Found 12 repos with OAuth implementations"
+
+[ID:q1-r] Assistant: (3500 char response with code)
+  → Summary: "Explained OAuth2 flow with example implementation"
+
+─────────────────────────────────────────────────
+
+[ID:q2] User: "Show me that code again"
+
+[ID:q2-retrieval] Tool: retrieve_full_context(id="q1-r")
+  → Returns complete 3500-char code from q1-r
+
+[ID:q2-r] Assistant: "Here's the complete OAuth code..."
+```
+
+**Benefit**: Clear audit trail + efficient retrieval without re-sending context
+
+---
+
+## Credit System
+
+### Transparent Cost Tracking
+
 ```
 Base Query:                  5 credits
 + retrieve_documentation:   10 credits
 + Each GitHub MCP tool:      3 credits
-+ Each other tool:           2 credits
++ Other tools:               2 credits each
 ```
 
 ### Example Costs
-| Query Type | Tools Used | Cost |
-|-----------|-----------|------|
-| Simple question | None | 5 credits |
-| With documentation | retrieve_documentation | 15 credits |
-| Complex workflow | docs + 2 GitHub tools | 21 credits |
+
+| Query | Tools | Cost |
+|-------|-------|------|
+| "What is OAuth?" | None | 5 credits |
+| "How does Stripe API work?" | retrieve_documentation | 15 credits |
+| "Find GraphQL examples" | retrieve_documentation + search_repositories | 18 credits |
+| Complex multi-step query | docs + 3 GitHub tools | 24 credits |
 
 ### Plans
+
 - **Free**: 50 credits/day (resets daily)
 - **Pro**: $19/month → 150 credits/day (max 3,000/month)
 - **Credit Packs**: Starting at $20 for 500 credits
 
 ---
 
-## 🔑 Environment Variables
+## Tech Stack
 
-### Frontend (`.env.local`)
-```env
-NEXT_PUBLIC_SUPABASE_URL=          # Supabase project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Supabase anon key
-NEXT_PUBLIC_BACKEND_API_URL=       # Backend URL (http://localhost:8000)
-```
+### Backend (Python)
+- **FastAPI**: Async API server with SSE streaming
+- **Anthropic Claude Haiku**: Primary reasoning engine (claude-haiku-4-5-20251001)
+- **VoyageAI**: Vector embeddings for semantic search
+- **Context7**: External API documentation retrieval
+- **MCP**: Model Context Protocol for GitHub integration
+- **Docker**: GitHub MCP server runtime
 
-### Backend (`backend/.env`)
-```env
-# AI Services
-ANTHROPIC_API_KEY=                 # Claude API key
-VOYAGE_API_KEY=                    # VoyageAI embeddings key
-CONTEXT7_API_KEY=                  # Context7 documentation API
+### Frontend (TypeScript)
+- **Next.js 15**: React framework with Turbopack
+- **Tailwind CSS v4**: Styling
+- **Supabase**: Authentication + PostgreSQL database
+- **Server-Sent Events**: Real-time streaming
 
-# MCP
-GITHUB_KEY=                        # GitHub personal access token
-
-# Database
-SUPABASE_URL=                      # Supabase project URL
-SUPABASE_SERVICE_KEY=              # Service role key (server-side)
-
-# Payments (Optional)
-STRIPE_SECRET_KEY=                 # Stripe secret key
-STRIPE_WEBHOOK_SECRET=             # Webhook signing secret
-```
+### Search & Retrieval
+- **BM25 Index**: TF-IDF keyword search (k1=1.5, b=0.75)
+- **Vector Index**: Cosine distance with VoyageAI embeddings
+- **Retriever**: Reciprocal Rank Fusion with optional reranking
 
 ---
 
-## 🧪 Development
+## Key Innovations
 
-### Running Tests
-```bash
-# Frontend
-cd kler
-npm run lint
-npm run build
+### 1. Dual-Track Memory (~60% Token Reduction)
+Instead of choosing between accuracy and cost, maintain both:
+- Full track for archive
+- Summarised track for API calls
+- Smart retrieval bridges the gap
 
-# Backend
-cd kler/backend
-pytest
+### 2. Multi-Turn Orchestration
+Single API calls can't handle: "Find the SDK, explain its methods, show examples"
+
+Multi-turn loop enables:
+```
+Search → Retrieve → Analyse → Synthesise → Respond
 ```
 
-### Development Commands
+### 3. Hybrid Search (Better than Single Method)
+**BM25 alone**: Misses semantically similar content
+**Vector alone**: Misses exact terminology matches
+**BM25 + Vector + RRF**: Best of both worlds
 
-**Frontend**:
-```bash
-npm run dev          # Dev server with turbopack
-npm run build        # Production build
-npm start            # Start production server
-npm run lint         # ESLint
-```
+### 4. Automatic Summarisation
+- Tool results summarised by Claude
+- Responses summarised for next conversation
+- Maintains context whilst reducing tokens
 
-**Backend**:
-```bash
-uvicorn app.main:app --reload        # Dev server with hot reload
-python app/main.py                   # Direct execution
-```
-
-### Docker Setup (GitHub MCP)
-
-The GitHub MCP server runs automatically via Docker when the backend starts:
-```bash
-docker run -i --rm \
-  -e GITHUB_PERSONAL_ACCESS_TOKEN \
-  ghcr.io/github/github-mcp-server
-```
+### 5. ID-Based References
+- Every message tracked with unique ID
+- Clear audit trail
+- Efficient retrieval without context duplication
 
 ---
 
-## 📊 Performance Characteristics
+## Performance Characteristics
 
 | Metric | Value |
 |--------|-------|
-| Token Efficiency | ~60% reduction via dual-track memory |
+| Token Reduction | ~60% via dual-track memory |
 | Max Query Cost | ~25 credits |
 | Turn Limit | 15 (prevents infinite loops) |
-| API Timeouts | 30s (Context7), 120s (chat) |
-| Streaming | SSE (Server-Sent Events) |
-| Concurrency | Parallel tool execution within turns |
+| API Timeout | 30s (Context7), 120s (chat) |
+| Streaming | SSE for real-time updates |
+| Concurrency | Parallel tool execution |
 
 ---
 
-## 🎯 Architecture Highlights
+## Real-World Example
 
-### ID-Based Reference System
-Every message, response, and tool result gets a unique ID:
-```
-Queries:      q1, q2, q3, ...
-Responses:    q1-r, q2-r, ...
-Tool Results: q1-t1, q1-t2, ...
-Summaries:    q1-r-sum (references q1-r)
-```
+**Query**: "How do I implement Stripe payment intents with webhooks?"
 
-This enables:
-- Precise retrieval by reference
-- Clear audit trail
-- Efficient context reconstruction
+**Turn 1** (5 credits):
+- Claude calls `retrieve_documentation`
+- Context7 fetches Stripe API docs
+- Hybrid search finds "Payment Intents" + "Webhooks" sections
+- Returns top 6 relevant chunks
+- Saves: `[ID:q1-t1]` full, `[ID:q1-t1-sum]` summary
 
-### Hybrid Search Pipeline
-1. **BM25 Index**: Keyword matching (TF-IDF)
-2. **Vector Index**: Semantic similarity (VoyageAI embeddings)
-3. **Reciprocal Rank Fusion**: Merge result sets
-4. **Claude Reranking**: Intelligent relevance scoring
+**Turn 2** (+3 credits):
+- Claude calls `search_repositories`
+- GitHub MCP finds Stripe webhook examples
+- Saves: `[ID:q1-t2]` with code, `[ID:q1-t2-sum]` summary
 
-**Why it works**: Catches both exact terminology and conceptually similar content
+**Turn 3** (final):
+- Claude synthesises response
+- Combines docs + examples
+- Provides implementation guide
+- Saves: `[ID:q1-r]` 3500 chars, `[ID:q1-r-sum]` 80 chars
 
-### Tool Categories
-1. **retrieve_full_context**: Internal memory lookup (free)
-2. **retrieve_documentation**: RAG with Context7 + hybrid search (+10 credits)
-3. **GitHub MCP**: Dynamic repository tools (+3 credits each)
+**Total**: 18 credits
+
+**Next Query**: "Show me that webhook code again"
+- Claude sees summary, calls `retrieve_full_context(id="q1-r")`
+- Returns complete code
+- Cost: 5 credits (no new tools)
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 klerAI/
-├── kler/                          # Frontend (Next.js)
-│   ├── src/
+├── kler/
+│   ├── src/                      # Next.js frontend
 │   │   ├── app/
-│   │   │   ├── (landing)/         # Public pages
-│   │   │   ├── login/             # Auth
-│   │   │   ├── signup/
-│   │   │   └── dashboard/         # Protected area
-│   │   │       ├── page.tsx       # Main chat interface
-│   │   │       ├── chat/
-│   │   │       ├── history/
-│   │   │       └── settings/
-│   │   ├── components/
-│   │   │   ├── landing/           # Marketing components
-│   │   │   ├── dashboard/         # Chat UI
-│   │   │   └── ui/                # Reusable components
-│   │   └── lib/
-│   │       ├── supabase/          # Auth setup
-│   │       ├── api.ts             # Backend calls
-│   │       └── types.ts           # TypeScript types
-│   └── package.json
+│   │   │   ├── dashboard/        # Chat interface
+│   │   │   └── (landing)/        # Public pages
+│   │   ├── components/           # React components
+│   │   └── lib/                  # API clients, types
+│   └── backend/
+│       └── app/
+│           ├── main.py           # FastAPI app
+│           ├── chat_service.py   # Turn loop orchestration
+│           └── rag_pipeline.py   # Search indexes & RAG
 │
-├── kler/backend/                  # Backend (FastAPI)
-│   ├── app/
-│   │   ├── main.py               # FastAPI application
-│   │   ├── chat_service.py       # Turn loop orchestration
-│   │   ├── rag_pipeline.py       # RAG components
-│   │   ├── credit_service.py     # Credit management
-│   │   └── stripe_service.py     # Stripe integration
-│   ├── requirements.txt
-│   └── .env
-│
-├── TOOL_ORCHESTRATION_FLOW.md    # Architecture diagrams
+├── TOOL_ORCHESTRATION_FLOW.md   # Detailed architecture diagrams
 ├── CLAUDE.md                     # Development guide
 └── README.md                     # This file
 ```
 
 ---
 
-## 🔐 Security Considerations
+## Why This Architecture Works
 
-- ✅ API keys stored in environment variables
-- ✅ Supabase Row Level Security (RLS) enabled
-- ✅ Stripe webhook signature verification
-- ✅ User authentication on all protected routes
-- ✅ Credit checks before processing
-- ✅ Rate limiting via credit system
-
----
-
-## 🚧 Roadmap
-
-- [ ] Persistent conversation storage (PostgreSQL)
-- [ ] Conversation branching and forking
-- [ ] Multi-model support (GPT-4 + Claude)
-- [ ] Custom MCP servers for internal APIs
-- [ ] Document versioning tracking
-- [ ] Citation tracking with source links
-- [ ] Enhanced analytics dashboard
-- [ ] Team collaboration features
+✅ **Scalable**: In-memory histories (can add Redis/PostgreSQL)
+✅ **Cost-Efficient**: 60% token reduction without losing accuracy
+✅ **Observable**: Clear ID-based audit trail
+✅ **Extensible**: Easy to add tools via MCP protocol
+✅ **User-Friendly**: Streaming responses, transparent costs
 
 ---
 
-## 🤝 Contributing
+## Learn More
 
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+📖 [Tool Orchestration Flow Diagrams](TOOL_ORCHESTRATION_FLOW.md) - Detailed Mermaid diagrams
+📖 [CLAUDE.md](CLAUDE.md) - Development guide and codebase overview
 
 ---
 
-## 📝 Licence
+## Built With
 
-This project is licensed under the MIT Licence - see the [LICENCE](LICENCE) file for details.
-
----
-
-## 🙏 Acknowledgements
-
-- [Anthropic Claude](https://www.anthropic.com/) - AI reasoning engine
-- [VoyageAI](https://www.voyageai.com/) - Vector embeddings
-- [Context7](https://context7.com/) - API documentation retrieval
-- [Model Context Protocol](https://github.com/modelcontextprotocol) - Tool integration standard
-- [Next.js](https://nextjs.org/) - React framework
-- [FastAPI](https://fastapi.tiangolo.com/) - Python API framework
-- [Supabase](https://supabase.com/) - Backend infrastructure
+**AI**: Claude API (Anthropic), VoyageAI embeddings
+**Backend**: FastAPI, Python 3.11
+**Frontend**: Next.js 15, TypeScript, Tailwind CSS v4
+**Database**: Supabase (PostgreSQL + Auth)
+**Infrastructure**: Docker (MCP), Stripe (payments)
 
 ---
 
-## 📧 Contact
+**Designed to balance accuracy and cost whilst enabling complex AI reasoning workflows**
 
-For questions or feedback, please open an issue or contact [your@email.com](mailto:your@email.com).
-
----
-
-## 🌟 Star this repository
-
-If you find this project useful, please consider giving it a star! ⭐
-
----
-
-**Built with ❤️ using Claude AI, Next.js, and FastAPI**
+⭐ Star this repo if you find the architecture interesting!
