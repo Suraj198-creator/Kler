@@ -279,13 +279,13 @@ graph TB
     CheckName -->|retrieve_documentation| RD[Retrieve Documentation Handler]
     CheckName -->|Other| GH[GitHub MCP Handler]
 
-    RF --> Input1[Input: {id: 'q1-r'}]
+    RF --> Input1["Input: id='q1-r'"]
     Input1 --> Search1[Search full history for ID]
     Search1 --> Found1{Found?}
     Found1 -->|Yes| Return1[Return full content]
     Found1 -->|No| Error1[Return 'ID not found']
 
-    RD --> Input2[Input: {query: 'Twitter OAuth'}]
+    RD --> Input2["Input: query='Twitter OAuth'"]
     Input2 --> Context7Call[Call Context7 API]
     Context7Call --> ChunkDoc[Chunk documentation]
     ChunkDoc --> CreateIndexes[Create BM25 + Vector indexes]
@@ -299,9 +299,9 @@ graph TB
     Input3 --> MCPCall[Call MCP client.call_tool]
     MCPCall --> MCPResult[MCP server result]
     MCPResult --> FormatMCP[Format result content]
-    FormatMCP --> GenerateID[Generate tool ID: q{N}-t{M}]
+    FormatMCP --> GenerateID["Generate tool ID: qN-tM"]
     GenerateID --> SaveFull[Save to full history]
-    SaveFull --> SummariseTool[Call summarize_tool_result]
+    SaveFull --> SummariseTool[Call summarise_tool_result]
     SummariseTool --> ClaudeSummarise[Claude creates 1-2 sentence summary]
     ClaudeSummarise --> SaveSummarised[Save summary with ref to full ID]
     SaveSummarised --> Return3[Return tool result]
