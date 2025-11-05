@@ -160,7 +160,7 @@ graph LR
         History --> Counter
     end
 
-    subgraph "Full Track - Complete"
+    subgraph "Full Track"
         direction TB
         F1["[ID:q1]<br/>role: user<br/>content: 'How to setup OAuth?'"]
         F2["[ID:q1-t1]<br/>type: tool_result<br/>tool: search_repositories<br/>content: (full 5000 char result)"]
@@ -169,7 +169,7 @@ graph LR
         F1 --> F2 --> F3
     end
 
-    subgraph "Summarised Track (~60% reduction)"
+    subgraph "Summarised Track"
         direction TB
         S1["[ID:q1]<br/>role: user<br/>content: 'How to setup OAuth?'"]
         S2["[ID:q1-t1-sum, ref:q1-t1]<br/>type: tool_summary<br/>content: 'Searched GitHub, found 3 repos with OAuth setup'"]
