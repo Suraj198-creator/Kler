@@ -442,31 +442,6 @@ Search → Retrieve → Analyse → Synthesise → Respond
 - Cost: 5 credits (no new tools)
 
 ---
-
-## Project Structure
-
-```
-klerAI/
-├── kler/
-│   ├── src/                      # Next.js frontend
-│   │   ├── app/
-│   │   │   ├── dashboard/        # Chat interface
-│   │   │   └── (landing)/        # Public pages
-│   │   ├── components/           # React components
-│   │   └── lib/                  # API clients, types
-│   └── backend/
-│       └── app/
-│           ├── main.py           # FastAPI app
-│           ├── chat_service.py   # Turn loop orchestration
-│           └── rag_pipeline.py   # Search indexes & RAG
-│
-├── TOOL_ORCHESTRATION_FLOW.md   # Detailed architecture diagrams
-├── CLAUDE.md                     # Development guide
-└── README.md                     # This file
-```
-
----
-
 ## Why This Architecture Works
 
 ✅ **Scalable**: In-memory histories (can add Redis/PostgreSQL)
