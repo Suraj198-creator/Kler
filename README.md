@@ -54,20 +54,20 @@ KlerAI maintains **two parallel conversation histories** for every user:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   USER CONVERSATION                     │
+│                   USER CONVERSATION                      │
 ├─────────────────────────────────────────────────────────┤
-│                                                         │
+│                                                          │
 │  TRACK 1: FULL HISTORY                                  │
-│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"     │
-│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)   │
-│  └─ [ID:q1-r] Assistant: (3500 char implementation)     │
-│                                                         │
-│  TRACK 2: SUMMARISED HISTORY (sent to AI)               │
-│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"     │
-│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"     │
-│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"     │
-│                                                         │
-│  TOKEN SAVINGS: ~60%                                    │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)  │
+│  └─ [ID:q1-r] Assistant: (3500 char implementation)    │
+│                                                          │
+│  TRACK 2: SUMMARISED HISTORY (sent to AI)              │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"    │
+│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"    │
+│                                                          │
+│  TOKEN SAVINGS: ~60%                                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -92,20 +92,20 @@ KlerAI uses a **turn-based orchestration loop** that enables complex workflows:
 ┌─────────────────────────────────────────────────────────┐
 │ TURN 1: Claude analyses query                           │
 │ └─> Calls retrieve_documentation tool                   │
-│     └─> Context7 API fetches Stripe docs                │
-│     └─> Hybrid search (BM25 + Vector embeddings)        │
-│     └─> Claude reranks top 6 results                    │
-│     └─> Returns documentation                           │
+│     └─> Context7 API fetches Stripe docs               │
+│     └─> Hybrid search (BM25 + Vector embeddings)       │
+│     └─> Claude reranks top 6 results                   │
+│     └─> Returns documentation                          │
 ├─────────────────────────────────────────────────────────┤
 │ TURN 2: Claude searches for code examples               │
-│ └─> Calls search_repositories (GitHub MCP)              │
-│     └─> Searches GitHub via Docker MCP server           │
-│     └─> Finds Stripe webhook examples                   │
-│     └─> Automatically summarises results                │
+│ └─> Calls search_repositories (GitHub MCP)             │
+│     └─> Searches GitHub via Docker MCP server          │
+│     └─> Finds Stripe webhook examples                  │
+│     └─> Automatically summarises results               │
 ├─────────────────────────────────────────────────────────┤
 │ TURN 3: Claude synthesises final response               │
-│ └─> Combines docs + code examples                       │
-│ └─> Provides complete implementation guide              │
+│ └─> Combines docs + code examples                      │
+│ └─> Provides complete implementation guide             │
 └─────────────────────────────────────────────────────────┘
 
 Cost: 5 (base) + 10 (docs) + 3 (GitHub) = 18 credits
@@ -212,7 +212,10 @@ User: "Show me that OAuth code again"
 **Purpose**: Dynamic repository operations
 
 - Runs in Docker via Model Context Protocol
-- Tools: `search_repositories`, `get_file_contents`, `search_code`
+- **Filtered to 7 read-only tools** (from 92 available) for security:
+  - `search_repositories`, `get_file_contents`, `search_code`
+  - `list_commits`, `get_commit`, `list_issues`, `search_issues`
+- **Blocks**: All create, delete, update operations
 - Results automatically summarised and saved to both tracks
 
 ---
@@ -247,29 +250,37 @@ User Query: "Twitter OAuth setup"
     │ section        │
     └────────────────┘
          ↓
+    ┌────────────────┐
+    │ Query          │  → Claude decomposes into 4-5
+    │ Decomposition  │  → focused sub-queries
+    └────────────────┘
+         ↓
     ┌────────────────────────────────┐
-    │ HYBRID SEARCH                  │
+    │ MULTI-QUERY HYBRID SEARCH      │
     │                                │
+    │  For each sub-query:           │
     │  BM25 Index        Vector Index│
     │  (keyword)         (semantic)  │
     │     ↓                  ↓       │
     │     └─── RRF Fusion ───┘       │
+    │           Top 3 per query      │
     └────────────────────────────────┘
          ↓
     ┌────────────────┐
-    │ Claude reranks │  → Evaluates relevance
-    │ top 30         │  → Returns top 6 chunks
+    │ Collect all    │  → 12-15 chunks total
+    │ results        │  → Better coverage
     └────────────────┘
          ↓
     ┌────────────────┐
-    │ Format and     │  → Markdown-formatted docs
-    │ return         │  → Ready for AI reasoning
+    │ Format and     │  → Shows doc name
+    │ return         │  → Shows sub-queries used
+    │                │  → Markdown-formatted docs
     └────────────────┘
 ```
 
 **VoyageAI** provides embeddings (voyage-3-large model)
 **BM25** uses TF-IDF for keyword matching
-**Claude** performs intelligent reranking
+**Claude** performs query decomposition and intelligent search
 
 ---
 
@@ -366,6 +377,59 @@ Base Query:                  5 credits
 
 ---
 
+## Advanced Features
+
+### 🔍 Query Decomposition
+
+Complex queries are automatically broken down into 4-5 focused sub-queries for comprehensive documentation coverage.
+
+**Example**: "How to setup Telegram Bot API with webhooks"
+
+Becomes:
+- "Telegram Bot API authentication and setup"
+- "Telegram Bot webhook configuration"
+- "Telegram Bot webhook security"
+- "Telegram Bot error handling"
+- "Telegram Bot best practices"
+
+Each sub-query searches for top 3 chunks → **12-15 total chunks** with better topical coverage
+
+### 🔒 GitHub Tool Filtering
+
+Security-first approach: Only 7 read-only GitHub tools are available (from 92 total):
+- ✅ search_repositories, get_file_contents, search_code
+- ✅ list_commits, get_commit, list_issues, search_issues
+- ❌ All create, delete, update, write operations blocked
+
+### 📋 Documentation Transparency
+
+Users see exactly:
+- **Which API documentation** was searched (e.g., "Telegram Bot API")
+- **Which sub-queries** were used to find information
+- **Numbered chunks** for easy reference
+
+Example output:
+```
+Documentation for 'Telegram Bot API':
+
+Search queries used:
+  - Telegram Bot API authentication
+  - Telegram Bot webhook setup
+
+[Doc 1]
+API authentication requires...
+```
+
+### ⚡ Debounced Documentation Search
+
+Slash command (`/`) searches Context7 with 700ms debounce to:
+- Reduce API calls by 80-90%
+- Prevent rate limiting
+- Allow multi-word searches (`/stripe webhook` works!)
+- Double-space to exit search mode
+
+---
+
 ## Key Innovations
 
 ### 1. Dual-Track Memory (~60% Token Reduction)
@@ -382,10 +446,12 @@ Multi-turn loop enables:
 Search → Retrieve → Analyse → Synthesise → Respond
 ```
 
-### 3. Hybrid Search (Better than Single Method)
+### 3. Multi-Query Hybrid Search (Better than Single Method)
 **BM25 alone**: Misses semantically similar content
 **Vector alone**: Misses exact terminology matches
-**BM25 + Vector + RRF**: Best of both worlds
+**BM25 + Vector + RRF + Query Decomposition**: Best of all worlds
+
+Decomposes complex queries into focused sub-queries, searches each independently for broader coverage
 
 ### 4. Automatic Summarisation
 - Tool results summarised by Claude
@@ -442,6 +508,31 @@ Search → Retrieve → Analyse → Synthesise → Respond
 - Cost: 5 credits (no new tools)
 
 ---
+
+## Project Structure
+
+```
+klerAI/
+├── kler/
+│   ├── src/                      # Next.js frontend
+│   │   ├── app/
+│   │   │   ├── dashboard/        # Chat interface
+│   │   │   └── (landing)/        # Public pages
+│   │   ├── components/           # React components
+│   │   └── lib/                  # API clients, types
+│   └── backend/
+│       └── app/
+│           ├── main.py           # FastAPI app
+│           ├── chat_service.py   # Turn loop orchestration
+│           └── rag_pipeline.py   # Search indexes & RAG
+│
+├── TOOL_ORCHESTRATION_FLOW.md   # Detailed architecture diagrams
+├── CLAUDE.md                     # Development guide
+└── README.md                     # This file
+```
+
+---
+
 ## Why This Architecture Works
 
 ✅ **Scalable**: In-memory histories (can add Redis/PostgreSQL)
