@@ -1,180 +1,175 @@
-# Tool Orchestration Flow Diagram
+# KlerAI
 
-## System Architecture: Dual-Track Memory with Multi-Turn Reasoning
+> AI chat application with dual-track memory management and multi-turn reasoning
 
-This system manages retrieval-augmented reasoning, multi-turn tool usage, and dual-track memory for efficient AI agent orchestration.
+**Reduces token costs by ~60% whilst enabling complex multi-step workflows**
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Claude](https://img.shields.io/badge/Claude_AI-191919?style=flat&logo=anthropic&logoColor=white)](https://www.anthropic.com/)
+[![Python](https://img.shields.io/badge/Python_3.11-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 
 ---
 
-## High-Level Flow Diagram
+## What is KlerAI?
+
+**KlerAI is an AI-powered coding assistant designed to help developers write code efficiently by combining API documentation and GitHub repositories.**
+
+Instead of manually searching through documentation, switching between tabs, and piecing together examples, KlerAI:
+
+✅ **Retrieves relevant API documentation** automatically from Context7's database
+✅ **Searches GitHub repositories** for real-world implementation examples
+✅ **Synthesises complete solutions** by combining docs + code examples
+✅ **Maintains conversation context** without expensive token costs
+
+### Use Cases
+
+**"How do I implement Stripe webhooks?"**
+→ Fetches Stripe API docs + searches GitHub for webhook examples → provides complete implementation
+
+**"Show me how to authenticate with Twitter ads API"**
+→ Retrieves X API OAuth documentation + finds working code samples → explains setup with examples
+
+**"How to use OpenAI's streaming API in Python?"**
+→ Gets OpenAI API docs + searches for streaming implementations → provides working code
+
+**Perfect for**: Building integrations, learning new APIs, rapid prototyping, and implementation guidance
+
+---
+
+## The Problem
+
+When building AI chat applications, you face a dilemma:
+
+**Option 1**: Send full conversation history → Accurate but expensive
+**Option 2**: Summarise everything → Cheap but loses critical details
+
+Most solutions force you to choose one. **KlerAI does both.**
+
+---
+
+## The Solution: Dual-Track Memory
+
+KlerAI maintains **two parallel conversation histories** for every user:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   USER CONVERSATION                      │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  TRACK 1: FULL HISTORY                                  │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)  │
+│  └─ [ID:q1-r] Assistant: (3500 char implementation)    │
+│                                                          │
+│  TRACK 2: SUMMARISED HISTORY (sent to AI)              │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"    │
+│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"    │
+│                                                          │
+│  TOKEN SAVINGS: ~60%                                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### How It Works
+
+1. **Every message gets a unique ID** (q1, q1-r, q1-t1)
+2. **Full history is archived** but never sent to the AI
+3. **Summarised version is sent** to Claude for context
+4. **When AI needs details**, it calls `retrieve_full_context` with the ID
+
+**Result**: Fast, cheap context scanning + precise retrieval when needed
+
+---
+
+## Architecture: Multi-Turn Reasoning Loop
+
+KlerAI uses a **turn-based orchestration loop** that enables complex workflows:
+
+### Example Query: "How do I implement Stripe webhooks?"
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ TURN 1: Claude analyses query                           │
+│ └─> Calls retrieve_documentation tool                   │
+│     └─> Context7 API fetches Stripe docs               │
+│     └─> Hybrid search (BM25 + Vector embeddings)       │
+│     └─> Claude reranks top 6 results                   │
+│     └─> Returns documentation                          │
+├─────────────────────────────────────────────────────────┤
+│ TURN 2: Claude searches for code examples               │
+│ └─> Calls search_repositories (GitHub MCP)             │
+│     └─> Searches GitHub via Docker MCP server          │
+│     └─> Finds Stripe webhook examples                  │
+│     └─> Automatically summarises results               │
+├─────────────────────────────────────────────────────────┤
+│ TURN 3: Claude synthesises final response               │
+│ └─> Combines docs + code examples                      │
+│ └─> Provides complete implementation guide             │
+└─────────────────────────────────────────────────────────┘
+
+Cost: 5 (base) + 10 (docs) + 3 (GitHub) = 18 credits
+Max turns: 15 (prevents infinite loops)
+```
+
+---
+
+## System Flow Diagram
+
+See detailed architecture in [TOOL_ORCHESTRATION_FLOW.md](TOOL_ORCHESTRATION_FLOW.md)
+
+### High-Level Flow
 
 ```mermaid
 graph TB
-    Start([User sends message]) --> API[FastAPI /api/chat]
-    API --> CreditCheck{Check Credits}
-    CreditCheck -->|Insufficient| Error402[Return 402 Error]
-    CreditCheck -->|Sufficient| ExtractParams[Extract user_id, message, conversation_id]
+    User[User Query] --> Check{Credit Check}
+    Check -->|Pass| History[Load Dual-Track History]
+    History --> Turn{Turn Loop}
 
-    ExtractParams --> LoadHistory[Load or Create User History]
-    LoadHistory --> BuildMessages[Build Working Messages from Summarised History]
+    Turn -->|Max 15 turns| Claude[Claude API]
+    Claude --> Tools{Tool Calls?}
 
-    BuildMessages --> TurnLoop{Turn Loop: turn < 15?}
+    Tools -->|No| Done[Response Complete]
+    Tools -->|Yes| Execute[Execute Tools]
 
-    TurnLoop -->|Yes| ClaudeAPI[Call Claude API with Tools]
-    ClaudeAPI --> CheckTools{Has Tool Calls?}
+    Execute --> T1[retrieve_full_context<br/>Lookup by ID]
+    Execute --> T2[retrieve_documentation<br/>RAG Pipeline]
+    Execute --> T3[GitHub MCP<br/>Docker Tools]
 
-    CheckTools -->|No| Complete[Break - Response Complete]
-    CheckTools -->|Yes| ExecuteTools[Execute All Tool Calls in Parallel]
+    T1 --> Save[Save Results]
+    T2 --> Save
+    T3 --> Save
 
-    ExecuteTools --> ToolType{Tool Type?}
+    Save --> Summarise[Auto-Summarise]
+    Summarise --> Turn
 
-    ToolType -->|retrieve_full_context| RetrieveFull[Lookup ID in Full History]
-    ToolType -->|retrieve_documentation| RAGPipeline[RAG Pipeline]
-    ToolType -->|GitHub MCP| MCPCall[MCP Client Call]
+    Done --> Return[Return Response + Summary]
 
-    RAGPipeline --> Context7[Query Context7 API]
-    Context7 --> SelectDoc[Claude Selects Best Doc]
-    SelectDoc --> ChunkDoc[Chunk by Section]
-    ChunkDoc --> HybridSearch[Hybrid Search: BM25 + Vector]
-    HybridSearch --> Rerank[Claude Reranking]
-    Rerank --> FormatResult[Format Documentation Result]
-
-    MCPCall --> MCPDocker[Docker GitHub MCP Server]
-    MCPDocker --> MCPFormat[Format MCP Result]
-    MCPFormat --> SaveFull[Save to Full History with ID]
-    SaveFull --> Summarise[Summarise Tool Result]
-    Summarise --> SaveSummarised[Save to Summarised History]
-
-    RetrieveFull --> ToolResult1[Return Tool Result]
-    FormatResult --> ToolResult2[Return Tool Result]
-    SaveSummarised --> ToolResult3[Return Tool Result]
-
-    ToolResult1 --> AddToMessages[Add Tool Results to Working Messages]
-    ToolResult2 --> AddToMessages
-    ToolResult3 --> AddToMessages
-
-    AddToMessages --> TurnLoop
-
-    TurnLoop -->|No: Max turns reached| Complete
-    Complete --> SaveResponse[Save Response to Both Histories]
-    SaveResponse --> SummariseResponse[Summarise Final Response]
-    SummariseResponse --> DeductCredits[Calculate & Deduct Credits]
-    DeductCredits --> Return[Return Response + Summary + Message ID]
-
-    style TurnLoop fill:#ff9999
-    style ClaudeAPI fill:#99ccff
-    style RAGPipeline fill:#99ff99
-    style MCPCall fill:#ffcc99
-    style Complete fill:#cc99ff
+    style Turn fill:#ff9999
+    style Claude fill:#99ccff
+    style T2 fill:#99ff99
 ```
 
----
-
-## Detailed Turn Loop Architecture
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as FastAPI
-    participant CS as ChatService
-    participant H as History Manager
-    participant C as Claude API
-    participant T as Tool Handler
-    participant MCP as GitHub MCP
-    participant RAG as RAG Pipeline
-
-    U->>API: POST /api/chat {message, user_id}
-    API->>CS: process_message()
-
-    CS->>H: Get user history
-    H-->>CS: {full: [], summarised: [], query_counter: N}
-
-    CS->>CS: Increment query_counter (q{N+1})
-    CS->>CS: Build working_messages from summarised history
-
-    Note over CS: Working messages have ID prefixes:<br/>[ID:q1], [ID:q1-r-sum, ref:q1-r]
-
-    loop Turn Loop (max 15 turns)
-        CS->>C: messages.create(tools=all_tools, messages=working_messages)
-        C-->>CS: Response with content blocks
-
-        alt No Tool Calls
-            CS->>CS: Break loop - response complete
-        else Has Tool Calls
-            CS->>T: Execute tool calls
-
-            alt Tool: retrieve_full_context
-                T->>H: Lookup ID in full history
-                H-->>T: Full message content
-                T-->>CS: Tool result
-            else Tool: retrieve_documentation
-                T->>RAG: retrieve_doc(query)
-                RAG->>RAG: Query Context7 for doc_name
-                RAG->>RAG: Claude selects best document
-                RAG->>RAG: Chunk by section
-                RAG->>RAG: Hybrid search (BM25 + Vector)
-                RAG->>RAG: Claude reranking
-                RAG-->>T: Formatted documentation
-                T-->>CS: Tool result
-            else Tool: GitHub MCP
-                T->>MCP: call_tool(name, input)
-                MCP-->>T: MCP result
-                T->>H: Save to full history [ID:q{N}-t{M}]
-                T->>C: Summarise tool result
-                C-->>T: Summary
-                T->>H: Save to summarised history [ID:q{N}-t{M}-sum, ref:q{N}-t{M}]
-                T-->>CS: Tool result
-            end
-
-            CS->>CS: Add tool results to working_messages
-            Note over CS: Continue to next turn
-        end
-    end
-
-    CS->>H: Save query to full history [ID:q{N}]
-    CS->>H: Save response to full history [ID:q{N}-r]
-    CS->>C: Summarise response
-    C-->>CS: Summary
-    CS->>H: Save to summarised history [ID:q{N}-r-sum, ref:q{N}-r]
-
-    CS-->>API: {response, summary, message_id}
-    API->>API: Calculate credits & deduct
-    API-->>U: {response, summary, conversation_id, message_id}
-```
-
----
-
-## Dual-Track Memory System
+### Dual-Track Memory Visualisation
 
 ```mermaid
 graph LR
-    subgraph "User History Structure"
-        direction TB
-        History[User History Dict]
-        Full["full: []<br/>Complete messages<br/>NOT sent to Claude"]
-        Summarised["summarised: []<br/>Compressed messages<br/>SENT to Claude"]
-        Counter[query_counter: N]
-
-        History --> Full
-        History --> Summarised
-        History --> Counter
+    subgraph "User History"
+        Full["FULL TRACK<br/>Complete archive<br/>NOT sent to Claude"]
+        Summarised["SUMMARISED TRACK<br/>Compressed<br/>SENT to Claude"]
     end
 
-    subgraph "Full Track"
-        direction TB
-        F1["[ID:q1]<br/>role: user<br/>content: 'How to setup OAuth?'"]
-        F2["[ID:q1-t1]<br/>type: tool_result<br/>tool: search_repositories<br/>content: (full 5000 char result)"]
-        F3["[ID:q1-r]<br/>role: assistant<br/>content: (full 3000 char response)"]
-
+    subgraph "Full Track Example"
+        F1["q1: 'How to setup OAuth?'"]
+        F2["q1-t1: (5000 char result)"]
+        F3["q1-r: (3500 char response)"]
         F1 --> F2 --> F3
     end
 
-    subgraph "Summarised Track"
-        direction TB
-        S1["[ID:q1]<br/>role: user<br/>content: 'How to setup OAuth?'"]
-        S2["[ID:q1-t1-sum, ref:q1-t1]<br/>type: tool_summary<br/>content: 'Searched GitHub, found 3 repos with OAuth setup'"]
-        S3["[ID:q1-r-sum, ref:q1-r]<br/>role: assistant<br/>content: 'Explained OAuth2 flow with code examples'"]
-
+    subgraph "Summarised Track Example"
+        S1["q1: 'How to setup OAuth?'"]
+        S2["q1-t1-sum: 'Searched GitHub'"]
+        S3["q1-r-sum: 'Explained OAuth2'"]
         S1 --> S2 --> S3
     end
 
@@ -183,381 +178,388 @@ graph LR
 
     style Full fill:#ffcccc
     style Summarised fill:#ccffcc
-    style History fill:#e6e6ff
 ```
 
 ---
 
-## ID System & Smart Retrieval
+## Three Tool Categories
 
-```mermaid
-graph TB
-    subgraph "ID Naming Convention"
-        Query["Query IDs:<br/>q1, q2, q3, ..."]
-        Response["Response IDs:<br/>q1-r, q2-r, ..."]
-        Tool["Tool Result IDs:<br/>q1-t1, q1-t2, ..."]
-        Summary["Summary IDs:<br/>q1-r-sum (ref:q1-r)<br/>q1-t1-sum (ref:q1-t1)"]
-    end
+### 1. retrieve_full_context (Free)
+**Purpose**: Retrieve complete message when summary insufficient
 
-    subgraph "Smart Retrieval Flow"
-        User2[User: 'Show me the full code from earlier']
-        Claude2{Claude analyzes<br/>summarised history}
-        Claude2 -->|Summary insufficient| CallTool[Call retrieve_full_context tool]
-        CallTool --> ProvideID[Provide ID: 'q1-r']
-        ProvideID --> Lookup[Lookup in full history]
-        Lookup --> Return[Return complete content]
-        Return --> Claude3[Claude uses full context<br/>to provide detailed answer]
-    end
-
-    Query -.-> User2
-    Response -.-> ProvideID
-
-    style CallTool fill:#ffee99
-    style Lookup fill:#99eeff
+```python
+User: "Show me that OAuth code again"
+→ Claude sees summary: "Explained OAuth2 flow"
+→ Realizes needs full content
+→ Calls retrieve_full_context(id="q1-r")
+→ Returns complete 3500-char implementation
 ```
+
+### 2. retrieve_documentation (+10 credits)
+**Purpose**: External API documentation with RAG
+
+**Pipeline**:
+1. Query Context7 API for doc name
+2. Claude selects best document
+3. Chunk documentation by sections
+4. Hybrid search: BM25 (keyword) + Vector (semantic)
+5. Reciprocal Rank Fusion merges results
+6. Claude reranks top 30 → returns top 6
+
+**Why hybrid search?** Catches both exact terminology AND conceptually similar content
+
+### 3. GitHub MCP Tools (+3 credits each)
+**Purpose**: Dynamic repository operations
+
+- Runs in Docker via Model Context Protocol
+- **Filtered to 7 read-only tools** (from 92 available) for security:
+  - `search_repositories`, `get_file_contents`, `search_code`
+  - `list_commits`, `get_commit`, `list_issues`, `search_issues`
+- **Blocks**: All create, delete, update operations
+- Results automatically summarised and saved to both tracks
 
 ---
 
-## RAG Pipeline Details
+## RAG Pipeline Deep Dive
 
-```mermaid
-graph TB
-    Start[User Query: 'Twitter OAuth setup']
-
-    Start --> Step1[Step 1: Claude parses query]
-    Step1 --> Extract[Extract: doc_name='X API'<br/>topic='OAuth setup']
-
-    Extract --> Step2[Step 2: Search Context7]
-    Step2 --> C7Search[GET context7.com/api/v1/search?query='X API']
-    C7Search --> Docs[Returns list of matching docs]
-
-    Docs --> Step3[Step 3: Claude selects best doc]
-    Step3 --> SelectID[Selects doc ID: '/docs/x-api-123']
-
-    SelectID --> Step4[Step 4: Retrieve full documentation]
-    Step4 --> C7Get[GET context7.com/api/v1/docs/x-api-123<br/>?topic='OAuth setup'&tokens=50000]
-    C7Get --> FullDoc[Full documentation text]
-
-    FullDoc --> Step5[Step 5: Chunk by section]
-    Step5 --> Chunks[Split on '\\n--------------------------------']
-
-    Chunks --> Step6[Step 6: Query Decomposition]
-    Step6 --> Decompose[Claude breaks query into 2-3<br/>focused sub-queries]
-    Decompose --> SubQueries["Sub-queries:<br/>1. 'Twitter OAuth authentication flow'<br/>2. 'Twitter API credentials'"]
-
-    SubQueries --> Step7[Step 7: Multi-Query Hybrid Search]
-    Step7 --> Loop[For each sub-query:]
-    Loop --> BM25[BM25 Index<br/>Keyword-based<br/>TF-IDF scoring]
-    Loop --> Vector[Vector Index<br/>VoyageAI embeddings<br/>Cosine distance]
-
-    BM25 --> RRF[Reciprocal Rank Fusion]
-    Vector --> RRF
-
-    RRF --> Top3[Top 3 results per query]
-    Top3 --> Collect[Collect all results<br/>6-9 total chunks]
-
-    Collect --> Step8[Step 8: Format with transparency]
-    Step8 --> Format["Format as:<br/>Documentation for 'X API'<br/>Search queries used:<br/>  - query 1<br/>  - query 2<br/>[Doc 1] content<br/>[Doc 2] content..."]
-    Format --> Return[Return to tool execution]
-
-    style Step1 fill:#ffcccc
-    style Step3 fill:#ffcccc
-    style Step6 fill:#ffffcc
-    style Decompose fill:#ffffcc
-    style BM25 fill:#ccffcc
-    style Vector fill:#ccffcc
-    style RRF fill:#ccccff
 ```
+User Query: "Twitter OAuth setup"
+         ↓
+    ┌────────────────┐
+    │ Claude parses  │  → doc_name: "X API"
+    │ query          │  → topic: "OAuth setup"
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Context7 API   │  → Search for "X API"
+    │ search         │  → Returns matching docs
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Claude selects │  → Picks best doc ID
+    │ document       │
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Retrieve full  │  → GET /docs/{id}?topic=OAuth
+    │ documentation  │  → Up to 50,000 tokens
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Chunk by       │  → Split on section delimiters
+    │ section        │
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Query          │  → Claude decomposes into 4-5
+    │ Decomposition  │  → focused sub-queries
+    └────────────────┘
+         ↓
+    ┌────────────────────────────────┐
+    │ MULTI-QUERY HYBRID SEARCH      │
+    │                                │
+    │  For each sub-query:           │
+    │  BM25 Index        Vector Index│
+    │  (keyword)         (semantic)  │
+    │     ↓                  ↓       │
+    │     └─── RRF Fusion ───┘       │
+    │           Top 3 per query      │
+    └────────────────────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Collect all    │  → 12-15 chunks total
+    │ results        │  → Better coverage
+    └────────────────┘
+         ↓
+    ┌────────────────┐
+    │ Format and     │  → Shows doc name
+    │ return         │  → Shows sub-queries used
+    │                │  → Markdown-formatted docs
+    └────────────────┘
+```
+
+**VoyageAI** provides embeddings (voyage-3-large model)
+**BM25** uses TF-IDF for keyword matching
+**Claude** performs query decomposition and intelligent search
 
 ---
 
-## Tool Execution Handler
+## ID-Based Reference System
 
-```mermaid
-graph TB
-    ToolCall[Tool Call Detected]
+Every piece of content gets a unique ID for precise tracking:
 
-    ToolCall --> CheckName{Tool Name?}
-
-    CheckName -->|retrieve_full_context| RF[Retrieve Full Context Handler]
-    CheckName -->|retrieve_documentation| RD[Retrieve Documentation Handler]
-    CheckName -->|Other| GH[GitHub MCP Handler]
-
-    RF --> Input1["Input: id='q1-r'"]
-    Input1 --> Search1[Search full history for ID]
-    Search1 --> Found1{Found?}
-    Found1 -->|Yes| Return1[Return full content]
-    Found1 -->|No| Error1[Return 'ID not found']
-
-    RD --> Input2["Input: query='Twitter OAuth'"]
-    Input2 --> Context7Call[Call Context7 API]
-    Context7Call --> ChunkDoc[Chunk documentation]
-    ChunkDoc --> CreateIndexes[Create BM25 + Vector indexes]
-    CreateIndexes --> AddDocs[Add chunks to indexes]
-    AddDocs --> HybridSearch[Hybrid search k=6]
-    HybridSearch --> RerankerFn[Claude reranking]
-    RerankerFn --> FormatDocs[Format as markdown]
-    FormatDocs --> Return2[Return formatted docs]
-
-    GH --> Filter[Filter: Only 7 allowed tools<br/>search_repositories, get_file_contents,<br/>search_code, list_commits, get_commit,<br/>list_issues, search_issues]
-    Filter --> Input3[Input: Tool-specific params]
-    Input3 --> MCPCall[Call MCP client.call_tool]
-    MCPCall --> MCPResult[MCP server result]
-    MCPResult --> FormatMCP[Format result content]
-    FormatMCP --> GenerateID["Generate tool ID: qN-tM"]
-    GenerateID --> SaveFull[Save to full history]
-    SaveFull --> SummariseTool[Call summarise_tool_result]
-    SummariseTool --> ClaudeSummarise[Claude creates 1-2 sentence summary]
-    ClaudeSummarise --> SaveSummarised[Save summary with ref to full ID]
-    SaveSummarised --> Return3[Return tool result]
-
-    Return1 --> Done[Tool Result]
-    Return2 --> Done
-    Return3 --> Done
-
-    style RF fill:#ffcccc
-    style RD fill:#ccffcc
-    style GH fill:#ccccff
 ```
+QUERIES       → q1, q2, q3, ...
+RESPONSES     → q1-r, q2-r, q3-r, ...
+TOOL RESULTS  → q1-t1, q1-t2, q2-t1, ...
+SUMMARIES     → q1-r-sum (references q1-r)
+               q1-t1-sum (references q1-t1)
+```
+
+### Example Conversation
+
+```
+[ID:q1] User: "How to implement OAuth for Twitter?"
+
+[ID:q1-t1] Tool: retrieve_documentation
+  → Full: 8000 characters of X API documentation
+  → Summary: "Retrieved X API OAuth docs with setup steps"
+
+[ID:q1-t2] Tool: search_repositories
+  → Full: 12 repositories with code examples
+  → Summary: "Found 12 repos with OAuth implementations"
+
+[ID:q1-r] Assistant: (3500 char response with code)
+  → Summary: "Explained OAuth2 flow with example implementation"
+
+─────────────────────────────────────────────────
+
+[ID:q2] User: "Show me that code again"
+
+[ID:q2-retrieval] Tool: retrieve_full_context(id="q1-r")
+  → Returns complete 3500-char code from q1-r
+
+[ID:q2-r] Assistant: "Here's the complete OAuth code..."
+```
+
+**Benefit**: Clear audit trail + efficient retrieval without re-sending context
 
 ---
 
-## Credit System Integration
+## Credit System
 
-```mermaid
-graph TB
-    Request[User Query Request]
+### Transparent Cost Tracking
 
-    Request --> Check1[Check Credits Before Processing]
-    Check1 --> Balance{Balance >= 5?}
-
-    Balance -->|No| Error402[Return 402 Error<br/>with upgrade message]
-    Balance -->|Yes| Process[Process Query]
-
-    Process --> TrackTools[Track Tool Usage]
-    TrackTools --> T1{retrieve_documentation<br/>used?}
-    TrackTools --> T2{GitHub MCP tools<br/>used?}
-    TrackTools --> T3[Count total tools]
-
-    T1 -->|Yes| Flag1[has_documentation = true]
-    T1 -->|No| Flag1[has_documentation = false]
-
-    T2 -->|Yes| Flag2[has_github_tools = true]
-    T2 -->|No| Flag2[has_github_tools = false]
-
-    T3 --> Count[tool_count = N]
-
-    Flag1 --> Calculate[Calculate Cost]
-    Flag2 --> Calculate
-    Count --> Calculate
-
-    Calculate --> Formula["Base: 5 credits<br/>+ documentation: 10<br/>+ each GitHub tool: 3<br/>+ each other tool: 2"]
-
-    Formula --> TotalCost[Total Cost]
-
-    TotalCost --> Deduct[Deduct Credits]
-    Deduct --> CheckBalance{Deduction<br/>successful?}
-
-    CheckBalance -->|No| Error402b[Return 402 Error<br/>mid-stream]
-    CheckBalance -->|Yes| UpdateBalance[Update Balance]
-    UpdateBalance --> ReturnResult[Return Response<br/>with credits_used & credits_remaining]
-
-    style Check1 fill:#ffcc99
-    style Calculate fill:#cc99ff
-    style Deduct fill:#ff9999
 ```
+Base Query:                  5 credits
++ retrieve_documentation:   10 credits
++ Each GitHub MCP tool:      3 credits
++ Other tools:               2 credits each
+```
+
+### Example Costs
+
+| Query | Tools | Cost |
+|-------|-------|------|
+| "What is OAuth?" | None | 5 credits |
+| "How does Stripe API work?" | retrieve_documentation | 15 credits |
+| "Find GraphQL examples" | retrieve_documentation + search_repositories | 18 credits |
+| Complex multi-step query | docs + 3 GitHub tools | 24 credits |
+
+### Plans
+
+- **Free**: 50 credits/day (resets daily)
+- **Pro**: $19/month → 150 credits/day (max 3,000/month)
+- **Credit Packs**: Starting at $20 for 500 credits
+
+---
+
+## Tech Stack
+
+### Backend (Python)
+- **FastAPI**: Async API server with SSE streaming
+- **Anthropic Claude Haiku**: Primary reasoning engine (claude-haiku-4-5-20251001)
+- **VoyageAI**: Vector embeddings for semantic search
+- **Context7**: External API documentation retrieval
+- **MCP**: Model Context Protocol for GitHub integration
+- **Docker**: GitHub MCP server runtime
+
+### Frontend (TypeScript)
+- **Next.js 15**: React framework with Turbopack
+- **Tailwind CSS v4**: Styling
+- **Supabase**: Authentication + PostgreSQL database
+- **Server-Sent Events**: Real-time streaming
+
+### Search & Retrieval
+- **BM25 Index**: TF-IDF keyword search (k1=1.5, b=0.75)
+- **Vector Index**: Cosine distance with VoyageAI embeddings
+- **Retriever**: Reciprocal Rank Fusion with optional reranking
 
 ---
 
 ## Advanced Features
 
-### Query Decomposition for Better Documentation Coverage
+### 🔍 Query Decomposition
 
-When a user asks a complex question like "How to setup Telegram Bot API with webhooks", the system automatically:
+Complex queries are automatically broken down into 4-5 focused sub-queries for comprehensive documentation coverage.
 
-1. **Breaks down the query** into 2-3 focused sub-queries using Claude Haiku:
-   - "Telegram Bot API authentication and setup"
-   - "Telegram Bot webhook configuration"
-   - "Telegram Bot webhook security"
+**Example**: "How to setup Telegram Bot API with webhooks"
 
-2. **Searches each sub-query** independently for the top 3 most relevant chunks
+Becomes:
+- "Telegram Bot API authentication and setup"
+- "Telegram Bot webhook configuration"
+- "Telegram Bot webhook security"
+- "Telegram Bot error handling"
+- "Telegram Bot best practices"
 
-3. **Collects all results** - returns 6-9 chunks instead of just 6
+Each sub-query searches for top 3 chunks → **12-15 total chunks** with better topical coverage
 
-**Benefit**: Better coverage of documentation topics without overwhelming the context with irrelevant information.
+### 🔒 GitHub Tool Filtering
 
-### GitHub Tool Filtering for Security
+Security-first approach: Only 7 read-only GitHub tools are available (from 92 total):
+- ✅ search_repositories, get_file_contents, search_code
+- ✅ list_commits, get_commit, list_issues, search_issues
+- ❌ All create, delete, update, write operations blocked
 
-The system has access to GitHub MCP server's 92 tools, but **filters to only 7 read-only operations**:
+### 📋 Documentation Transparency
 
-- `search_repositories` - Find repositories by keyword
-- `get_file_contents` - Read file contents
-- `search_code` - Search code across repos
-- `list_commits` - List commits in a repository
-- `get_commit` - Get specific commit details
-- `list_issues` - List issues in a repository
-- `search_issues` - Search issues by keyword
+Users see exactly:
+- **Which API documentation** was searched (e.g., "Telegram Bot API")
+- **Which sub-queries** were used to find information
+- **Numbered chunks** for easy reference
 
-**Blocked**: All create, delete, update, and write operations for security
-
-**Total available tools**: 9 (2 custom + 7 GitHub MCP)
-
-### Document Name Display
-
-Instead of showing the search query, the system displays the **actual API documentation name**:
-
-**Before**: "Documentation for 'twitter oauth'"
-**After**: "Documentation for 'X API'"
-
-Makes it clearer which official documentation source is being used.
-
-### Sub-Query Transparency
-
-Users can see exactly which sub-queries were used to search the documentation:
-
+Example output:
 ```
 Documentation for 'Telegram Bot API':
 
 Search queries used:
-  - Telegram Bot API authentication and setup
-  - Telegram Bot webhook configuration
-  - Telegram Bot webhook security
+  - Telegram Bot API authentication
+  - Telegram Bot webhook setup
 
 [Doc 1]
-...
+API authentication requires...
 ```
 
-Helps users understand how their question was interpreted and what was searched.
+### ⚡ Debounced Documentation Search
+
+Slash command (`/`) searches Context7 with 700ms debounce to:
+- Reduce API calls by 80-90%
+- Prevent rate limiting
+- Allow multi-word searches (`/stripe webhook` works!)
+- Double-space to exit search mode
 
 ---
 
-## Key Features
+## Key Innovations
 
-### 1. Multi-Turn Reasoning
-- Enables complex workflows: Search GitHub → Retrieve SDK → Fetch API docs → Generate code
-- Max 15 turns with automatic loop termination when response is complete
+### 1. Dual-Track Memory (~60% Token Reduction)
+Instead of choosing between accuracy and cost, maintain both:
+- Full track for archive
+- Summarised track for API calls
+- Smart retrieval bridges the gap
 
-### 2. Dual-Track Memory (~60% Token Reduction)
-- **Full Track**: Complete messages stored but NOT sent to Claude
-- **Summarised Track**: Compressed versions sent to Claude for efficiency
-- Smart retrieval when summaries are insufficient
+### 2. Multi-Turn Orchestration
+Single API calls can't handle: "Find the SDK, explain its methods, show examples"
 
-### 3. ID-Based Reference System
-- Unique IDs for every message, response, and tool result
-- Enables precise retrieval and context reconstruction
-- References link summaries to full content
+Multi-turn loop enables:
+```
+Search → Retrieve → Analyse → Synthesise → Respond
+```
 
-### 4. Three Tool Categories
-1. **retrieve_full_context**: Internal history lookup
-2. **retrieve_documentation**: RAG with Context7 API + hybrid search
-3. **GitHub MCP**: Dynamic tools from Docker-based MCP server
+### 3. Multi-Query Hybrid Search (Better than Single Method)
+**BM25 alone**: Misses semantically similar content
+**Vector alone**: Misses exact terminology matches
+**BM25 + Vector + RRF + Query Decomposition**: Best of all worlds
 
-### 5. RAG Pipeline
-- Context7 API for external documentation
-- Hybrid search: BM25 (keyword) + Vector (semantic)
-- Reciprocal Rank Fusion for result merging
-- Claude-powered reranking for optimal relevance
+Decomposes complex queries into focused sub-queries, searches each independently for broader coverage
 
-### 6. Automatic Summarisation
+### 4. Automatic Summarisation
 - Tool results summarised by Claude
-- Final responses summarised for next conversation
-- Maintains context while reducing token usage
+- Responses summarised for next conversation
+- Maintains context whilst reducing tokens
 
----
-
-## Technical Stack
-
-### Backend Components
-- **FastAPI**: API server with streaming support
-- **Anthropic Claude**: Primary reasoning engine (claude-haiku-4-5-20251001)
-- **VoyageAI**: Embeddings for vector search (voyage-3-large)
-- **Context7**: External API documentation retrieval
-- **MCP (Model Context Protocol)**: GitHub tool integration via Docker
-- **Docker**: GitHub MCP server runtime
-
-### Search & Retrieval
-- **BM25Index**: TF-IDF keyword search with configurable k1/b parameters
-- **VectorIndex**: Cosine/Euclidean distance with VoyageAI embeddings
-- **Retriever**: RRF fusion with optional Claude reranking
-- **httpx**: Async HTTP client for Context7 API
-
-### Memory Management
-- In-memory dictionaries per user (ephemeral, not persisted)
-- Dual-track histories (full + summarised)
-- Automatic query counter for ID generation
-
----
-
-## Example Conversation Flow
-
-**Query 1**: "How do I set up OAuth for Twitter ads?"
-
-1. **Turn 1**: Claude calls `retrieve_documentation` tool
-   - Context7 API fetches X API documentation
-   - RAG pipeline retrieves relevant OAuth sections
-   - Tool result saved: `[ID:q1-t1]` (full), `[ID:q1-t1-sum, ref:q1-t1]` (summarised)
-
-2. **Turn 2**: Claude calls `search_repositories` (GitHub MCP)
-   - Searches for Twitter ads examples
-   - Result saved: `[ID:q1-t2]` (full), `[ID:q1-t2-sum, ref:q1-t2]` (summarised)
-
-3. **Turn 3**: Claude provides final response
-   - Explains OAuth flow with code examples
-   - Response saved: `[ID:q1-r]` (full), `[ID:q1-r-sum, ref:q1-r]` (summarised)
-
-**Query 2**: "Show me the full code from earlier"
-
-1. **Turn 1**: Claude analyzes summarised history, realizes summary insufficient
-   - Calls `retrieve_full_context` with `{id: "q1-r"}`
-   - Receives complete code from full history
-
-2. **Turn 2**: Claude provides detailed code explanation
-   - Uses retrieved full context
+### 5. ID-Based References
+- Every message tracked with unique ID
+- Clear audit trail
+- Efficient retrieval without context duplication
 
 ---
 
 ## Performance Characteristics
 
-- **Token Efficiency**: ~60% reduction through dual-track memory
-- **Max Query Cost**: Base 5 + documentation 10 + tools (2-3 each) = ~25 credits
-- **API Timeouts**: 30s for Context7, 120s for chat
-- **Streaming**: SSE (Server-Sent Events) for real-time updates
-- **Turn Limit**: 15 turns to prevent infinite loops
-- **Concurrency**: Parallel tool execution within single turn
+| Metric | Value |
+|--------|-------|
+| Token Reduction | ~60% via dual-track memory |
+| Max Query Cost | ~25 credits |
+| Turn Limit | 15 (prevents infinite loops) |
+| API Timeout | 30s (Context7), 120s (chat) |
+| Streaming | SSE for real-time updates |
+| Concurrency | Parallel tool execution |
 
 ---
 
-## Credit Pricing Model
+## Real-World Example
 
-### Base Costs
-- **Minimum Query**: 5 credits
-- **With Documentation**: +10 credits (retrieve_documentation tool)
-- **Per GitHub Tool**: +3 credits each
-- **Per Other Tool**: +2 credits each
+**Query**: "How do I implement Stripe payment intents with webhooks?"
 
-### Plans
-- **Free**: 50 credits/day (resets daily)
-- **Pro**: $19/month for 150 credits/day (max 3,000/month)
-- **Credit Packs**: Starting at $20 for 500 credits (one-time purchase)
+**Turn 1** (5 credits):
+- Claude calls `retrieve_documentation`
+- Context7 fetches Stripe API docs
+- Hybrid search finds "Payment Intents" + "Webhooks" sections
+- Returns top 6 relevant chunks
+- Saves: `[ID:q1-t1]` full, `[ID:q1-t1-sum]` summary
 
-### Example Costs
-- Simple query: 5 credits
-- Query + documentation: 15 credits
-- Query + docs + 2 GitHub tools: 21 credits
-- Complex query with multiple tools: ~25 credits
+**Turn 2** (+3 credits):
+- Claude calls `search_repositories`
+- GitHub MCP finds Stripe webhook examples
+- Saves: `[ID:q1-t2]` with code, `[ID:q1-t2-sum]` summary
 
----
+**Turn 3** (final):
+- Claude synthesises response
+- Combines docs + examples
+- Provides implementation guide
+- Saves: `[ID:q1-r]` 3500 chars, `[ID:q1-r-sum]` 80 chars
 
-## Architecture Benefits
+**Total**: 18 credits
 
-1. **Stateful Reasoning**: Multi-turn loops enable complex problem solving
-2. **Cost Efficient**: Dual-track memory reduces token usage by ~60%
-3. **Explainable**: ID system provides clear audit trail
-4. **Extensible**: Easy to add new tools via MCP protocol
-5. **Hybrid Search**: Combines keyword and semantic search for best results
-6. **Smart Caching**: Context7 API results cached for repeated queries
-7. **Credit Control**: Fine-grained cost tracking per tool usage
+**Next Query**: "Show me that webhook code again"
+- Claude sees summary, calls `retrieve_full_context(id="q1-r")`
+- Returns complete code
+- Cost: 5 credits (no new tools)
 
 ---
 
-*Generated for KlerAI - Full-stack AI chat application with RAG capabilities*
+## Project Structure
+
+```
+klerAI/
+├── kler/
+│   ├── src/                      # Next.js frontend
+│   │   ├── app/
+│   │   │   ├── dashboard/        # Chat interface
+│   │   │   └── (landing)/        # Public pages
+│   │   ├── components/           # React components
+│   │   └── lib/                  # API clients, types
+│   └── backend/
+│       └── app/
+│           ├── main.py           # FastAPI app
+│           ├── chat_service.py   # Turn loop orchestration
+│           └── rag_pipeline.py   # Search indexes & RAG
+│
+├── TOOL_ORCHESTRATION_FLOW.md   # Detailed architecture diagrams
+├── CLAUDE.md                     # Development guide
+└── README.md                     # This file
+```
+
+---
+
+## Why This Architecture Works
+
+✅ **Scalable**: In-memory histories (can add Redis/PostgreSQL)
+✅ **Cost-Efficient**: 60% token reduction without losing accuracy
+✅ **Observable**: Clear ID-based audit trail
+✅ **Extensible**: Easy to add tools via MCP protocol
+✅ **User-Friendly**: Streaming responses, transparent costs
+
+---
+
+## Learn More
+
+📖 [Tool Orchestration Flow Diagrams](TOOL_ORCHESTRATION_FLOW.md) - Detailed Mermaid diagrams
+📖 [CLAUDE.md](CLAUDE.md) - Development guide and codebase overview
+
+---
+
+## Built With
+
+**AI**: Claude API (Anthropic), VoyageAI embeddings
+**Backend**: FastAPI, Python 3.11
+**Frontend**: Next.js 15, TypeScript, Tailwind CSS v4
+**Database**: Supabase (PostgreSQL + Auth)
+**Infrastructure**: Docker (MCP), Stripe (payments)
+
+---
+
+**Designed to balance accuracy and cost whilst enabling complex AI reasoning workflows**
+
+⭐ Star this repo if you find the architecture interesting!
