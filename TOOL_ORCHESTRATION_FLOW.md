@@ -241,25 +241,29 @@ graph TB
     FullDoc --> Step5[Step 5: Chunk by section]
     Step5 --> Chunks[Split on '\\n--------------------------------']
 
-    Chunks --> Step6[Step 6: Hybrid Search]
-    Step6 --> BM25[BM25 Index<br/>Keyword-based<br/>TF-IDF scoring]
-    Step6 --> Vector[Vector Index<br/>VoyageAI embeddings<br/>Cosine distance]
+    Chunks --> Step6[Step 6: Query Decomposition]
+    Step6 --> Decompose[Claude breaks query into 2-3<br/>focused sub-queries]
+    Decompose --> SubQueries["Sub-queries:<br/>1. 'Twitter OAuth authentication flow'<br/>2. 'Twitter API credentials'"]
+
+    SubQueries --> Step7[Step 7: Multi-Query Hybrid Search]
+    Step7 --> Loop[For each sub-query:]
+    Loop --> BM25[BM25 Index<br/>Keyword-based<br/>TF-IDF scoring]
+    Loop --> Vector[Vector Index<br/>VoyageAI embeddings<br/>Cosine distance]
 
     BM25 --> RRF[Reciprocal Rank Fusion]
     Vector --> RRF
 
-    RRF --> Top30[Top 30 results]
+    RRF --> Top3[Top 3 results per query]
+    Top3 --> Collect[Collect all results<br/>6-9 total chunks]
 
-    Top30 --> Step7[Step 7: Claude reranking]
-    Step7 --> Rerank[Claude evaluates relevance<br/>to original query]
-    Rerank --> Top6[Top 6 most relevant chunks]
-
-    Top6 --> Format[Format as documentation context]
+    Collect --> Step8[Step 8: Format with transparency]
+    Step8 --> Format["Format as:<br/>Documentation for 'X API'<br/>Search queries used:<br/>  - query 1<br/>  - query 2<br/>[Doc 1] content<br/>[Doc 2] content..."]
     Format --> Return[Return to tool execution]
 
     style Step1 fill:#ffcccc
     style Step3 fill:#ffcccc
-    style Step7 fill:#ffcccc
+    style Step6 fill:#ffffcc
+    style Decompose fill:#ffffcc
     style BM25 fill:#ccffcc
     style Vector fill:#ccffcc
     style RRF fill:#ccccff
@@ -295,7 +299,8 @@ graph TB
     RerankerFn --> FormatDocs[Format as markdown]
     FormatDocs --> Return2[Return formatted docs]
 
-    GH --> Input3[Input: Tool-specific params]
+    GH --> Filter[Filter: Only 7 allowed tools<br/>search_repositories, get_file_contents,<br/>search_code, list_commits, get_commit,<br/>list_issues, search_issues]
+    Filter --> Input3[Input: Tool-specific params]
     Input3 --> MCPCall[Call MCP client.call_tool]
     MCPCall --> MCPResult[MCP server result]
     MCPResult --> FormatMCP[Format result content]
@@ -361,6 +366,68 @@ graph TB
     style Calculate fill:#cc99ff
     style Deduct fill:#ff9999
 ```
+
+---
+
+## Advanced Features
+
+### Query Decomposition for Better Documentation Coverage
+
+When a user asks a complex question like "How to setup Telegram Bot API with webhooks", the system automatically:
+
+1. **Breaks down the query** into 2-3 focused sub-queries using Claude Haiku:
+   - "Telegram Bot API authentication and setup"
+   - "Telegram Bot webhook configuration"
+   - "Telegram Bot webhook security"
+
+2. **Searches each sub-query** independently for the top 3 most relevant chunks
+
+3. **Collects all results** - returns 6-9 chunks instead of just 6
+
+**Benefit**: Better coverage of documentation topics without overwhelming the context with irrelevant information.
+
+### GitHub Tool Filtering for Security
+
+The system has access to GitHub MCP server's 92 tools, but **filters to only 7 read-only operations**:
+
+- `search_repositories` - Find repositories by keyword
+- `get_file_contents` - Read file contents
+- `search_code` - Search code across repos
+- `list_commits` - List commits in a repository
+- `get_commit` - Get specific commit details
+- `list_issues` - List issues in a repository
+- `search_issues` - Search issues by keyword
+
+**Blocked**: All create, delete, update, and write operations for security
+
+**Total available tools**: 9 (2 custom + 7 GitHub MCP)
+
+### Document Name Display
+
+Instead of showing the search query, the system displays the **actual API documentation name**:
+
+**Before**: "Documentation for 'twitter oauth'"
+**After**: "Documentation for 'X API'"
+
+Makes it clearer which official documentation source is being used.
+
+### Sub-Query Transparency
+
+Users can see exactly which sub-queries were used to search the documentation:
+
+```
+Documentation for 'Telegram Bot API':
+
+Search queries used:
+  - Telegram Bot API authentication and setup
+  - Telegram Bot webhook configuration
+  - Telegram Bot webhook security
+
+[Doc 1]
+...
+```
+
+Helps users understand how their question was interpreted and what was searched.
 
 ---
 
