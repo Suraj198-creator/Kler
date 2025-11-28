@@ -7,12 +7,14 @@ import { ChatInput } from '@/components/dashboard/chat-input'
 import { getCurrentUser, supabase } from '@/lib/supabase'
 import { sendMessageStream, loadConversation } from '@/lib/api'
 import type { Message } from '@/lib/types'
-import { Sparkles, Loader2, ArrowDown } from 'lucide-react'
+import { Loader2, ArrowDown } from 'lucide-react'
 import { marked } from 'marked'
 import type { ToolUsage, DocumentationMetadata } from '@/lib/types'
 import { useConversationRefresh, useProfile } from './layout'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+
+export const dynamic = 'force-dynamic'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -29,8 +31,6 @@ export default function DashboardPage() {
   const [streamingHtml, setStreamingHtml] = useState<string>('')
   const [toolsInUse, setToolsInUse] = useState<ToolUsage[]>([])
   const [documentationSources, setDocumentationSources] = useState<DocumentationMetadata[]>([])
-  const [currentTurn, setCurrentTurn] = useState<number>(0)
-  const [maxTurns, setMaxTurns] = useState<number>(15)
   const [messagesLoadKey, setMessagesLoadKey] = useState<number>(0)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -105,7 +105,7 @@ export default function DashboardPage() {
     }
 
     loadData()
-  }, [conversationId, router])
+  }, [conversationId, router, loading])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -140,6 +140,7 @@ export default function DashboardPage() {
       // Submit the prompt
       handleSend(promptFromUrl)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, userId, conversationId, messages.length, loading])
 
   const handleSend = async (content: string, docContext?: string) => {
@@ -150,8 +151,7 @@ export default function DashboardPage() {
     setStreamingHtml('')
     setToolsInUse([])
     setDocumentationSources([])
-    setCurrentTurn(0)
-    setMaxTurns(15)
+
 
     try {
       let activeConversationId = currentConversationId
@@ -202,6 +202,7 @@ export default function DashboardPage() {
       let fullResponse = ''
       let responseSummary = ''
       let messageId = ''
+      let pendingMarkdownUpdate = false
 
       // Local accumulators for tools and docs (to avoid closure issues)
       const toolsAccumulator: ToolUsage[] = []
@@ -216,8 +217,6 @@ export default function DashboardPage() {
           switch (event.type) {
             case 'turn_start':
               console.log('Turn started:', event.turn)
-              setCurrentTurn(event.turn || 0)
-              setMaxTurns(event.max_turns || 15)
               break
 
             case 'turn_complete':
@@ -267,8 +266,15 @@ export default function DashboardPage() {
               fullResponse += event.content || ''
               const newText = fullResponse
               setStreamingText(newText)
-              // Render markdown for streaming text (synchronous)
-              setStreamingHtml(marked.parse(newText) as string)
+              // Throttle markdown parsing to improve performance
+              // Parse immediately on first chunk, then use requestAnimationFrame for subsequent chunks
+              if (!pendingMarkdownUpdate) {
+                pendingMarkdownUpdate = true
+                requestAnimationFrame(() => {
+                  setStreamingHtml(marked.parse(fullResponse) as string)
+                  pendingMarkdownUpdate = false
+                })
+              }
               break
 
             case 'done':
@@ -279,7 +285,7 @@ export default function DashboardPage() {
 
             case 'error':
               // Handle insufficient credits error
-              if ((event as any).error_code === 'INSUFFICIENT_CREDITS') {
+              if ((event as Record<string, unknown>).error_code === 'INSUFFICIENT_CREDITS') {
                 // Show error as an assistant message instead of console error
                 const errorMessage: Message = {
                   id: `error-${Date.now()}-${Math.random()}`,
@@ -410,8 +416,14 @@ export default function DashboardPage() {
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4">
             <div className="max-w-2xl text-center">
-              <div className="mb-6 inline-flex items-center justify-center rounded-2xl bg-black p-4">
-                <Sparkles className="h-8 w-8 text-white" />
+              <div className="mb-6 inline-flex items-center justify-center">
+                <Image
+                  src="/logo.png"
+                  alt="Kler AI"
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 object-contain"
+                />
               </div>
               <h2 className="mb-4 text-3xl font-bold text-gray-900">
                 How can I help you today?
@@ -455,17 +467,7 @@ export default function DashboardPage() {
                         <span className="text-sm font-semibold text-gray-900">
                           {toolsInUse.length > 0 ? 'Agent Working' : 'Initializing...'}
                         </span>
-                        {currentTurn > 0 && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                            Turn {currentTurn}/{maxTurns}
-                          </span>
-                        )}
                       </div>
-                      {toolsInUse.length > 0 && (
-                        <div className="text-xs text-gray-600 mt-0.5">
-                          {toolsInUse.filter(t => t.status === 'complete').length}/{toolsInUse.length} tools completed
-                        </div>
-                      )}
                     </div>
                   </div>
 

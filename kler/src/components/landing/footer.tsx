@@ -7,6 +7,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           <div>
             <div className="mb-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="Kler" className="h-10 w-auto" />
             </div>
             <p className="text-sm text-gray-600">

@@ -1,7 +1,7 @@
 // src/components/dashboard/chat-message.tsx
 'use client'
 
-import { User, Bot, ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState, useEffect, useRef, memo } from 'react'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
@@ -18,8 +18,8 @@ interface ChatMessageProps {
   userAvatarUrl?: string | null
 }
 
-function ChatMessageComponent({ message, isStreaming = false, renderKey = 0, userFullName, userAvatarUrl }: ChatMessageProps) {
-  const [html, setHtml] = useState('')
+function ChatMessageComponent({ message, renderKey = 0, userFullName, userAvatarUrl }: ChatMessageProps) {
+  const [html, setHtml] = useState<string>('')
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set())
   const [expandedDocs, setExpandedDocs] = useState<Set<number>>(new Set())
   const [showProcessingDetails, setShowProcessingDetails] = useState(false)
@@ -331,22 +331,24 @@ function ChatMessageComponent({ message, isStreaming = false, renderKey = 0, use
           </div>
         ) : null}
 
-        <div
-          ref={containerRef}
-          className="prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        <>
+          <div
+            ref={containerRef}
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
 
-        {/* Metadata (sources, etc.) */}
-        {message.metadata?.sources && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {message.metadata.sources.map((source: string, i: number) => (
-              <a key={i} href={source} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
-                Source {i + 1}
-              </a>
-            ))}
-          </div>
-        )}
+          {/* Metadata (sources, etc.) */}
+          {message.metadata?.sources && Array.isArray(message.metadata.sources) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(message.metadata.sources as string[]).map((source: string, i: number) => (
+                <a key={i} href={source} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                  Source {i + 1}
+                </a>
+              ))}
+            </div>
+          )}
+        </>
       </div>
     </div>
   )
@@ -356,7 +358,7 @@ function ChatMessageComponent({ message, isStreaming = false, renderKey = 0, use
 export const ChatMessage = memo(ChatMessageComponent, (prevProps, nextProps) => {
   // Only re-render if message ID changes or renderKey changes or user profile changes
   return prevProps.message.id === nextProps.message.id &&
-         prevProps.renderKey === nextProps.renderKey &&
-         prevProps.userFullName === nextProps.userFullName &&
-         prevProps.userAvatarUrl === nextProps.userAvatarUrl
+    prevProps.renderKey === nextProps.renderKey &&
+    prevProps.userFullName === nextProps.userFullName &&
+    prevProps.userAvatarUrl === nextProps.userAvatarUrl
 })

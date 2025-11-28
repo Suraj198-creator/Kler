@@ -42,7 +42,7 @@ export interface Message {
   content: string
   summary?: string | null
   message_id?: string | null
-  metadata?: any
+  metadata?: Record<string, unknown>
   tools_used?: ToolUsage[]
   documentation_sources?: DocumentationMetadata[]
   created_at: string

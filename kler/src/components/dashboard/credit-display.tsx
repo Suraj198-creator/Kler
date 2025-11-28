@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Zap, TrendingUp, Crown } from 'lucide-react'
 import { getCreditBalance } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,7 @@ export function CreditDisplay({ userId, onCreditsUpdate, className }: CreditDisp
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchCredits = async () => {
+  const fetchCredits = useCallback(async () => {
     try {
       setError(null)
       const data = await getCreditBalance(userId)
@@ -36,14 +36,14 @@ export function CreditDisplay({ userId, onCreditsUpdate, className }: CreditDisp
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId, onCreditsUpdate])
 
   useEffect(() => {
     fetchCredits()
     // Refresh credits every 30 seconds
     const interval = setInterval(fetchCredits, 30000)
     return () => clearInterval(interval)
-  }, [userId])
+  }, [userId, fetchCredits])
 
   const usagePercentage = (balance / allowance) * 100
   const isLow = usagePercentage < 20

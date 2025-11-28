@@ -14,7 +14,7 @@ interface HeaderProps {
   onTitleChange?: (newTitle: string) => void
 }
 
-export function Header({ profile, onMenuClick, sidebarCollapsed, onToggleSidebar, conversationTitle, onTitleChange }: HeaderProps) {
+export function Header({ onMenuClick, conversationTitle, onTitleChange }: HeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState(conversationTitle || '')
   const inputRef = useRef<HTMLInputElement>(null)

@@ -18,6 +18,8 @@ import {
 } from '@/lib/chat-db'
 import { sendMessage as sendMessageToBackend } from '@/lib/api-client'
 
+export const dynamic = 'force-dynamic'
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -79,14 +81,11 @@ export default function ChatPage() {
 
     try {
       let currentConvId = conversationId
-      let currentConv = conversation
-
       // Create new conversation if this is the first message
       if (!currentConvId) {
         const title = generateConversationTitle(userMessage)
         const newConv = await createConversation(userId, title)
         currentConvId = newConv.id
-        currentConv = newConv
         setConversationId(currentConvId)
         setConversation(newConv)
 
@@ -96,7 +95,6 @@ export default function ChatPage() {
 
       // Generate message IDs for backend reference
       const queryId = `q${messageCounter + 1}`
-      const responseId = `${queryId}-r`
 
       // Save user message to database
       const savedUserMsg = await saveMessage(
@@ -195,11 +193,10 @@ export default function ChatPage() {
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-black text-white'
-                    : 'bg-white text-gray-900 shadow-sm'
-                }`}
+                className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.role === 'user'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-gray-900 shadow-sm'
+                  }`}
               >
                 <p className="whitespace-pre-wrap text-sm">{message.content}</p>
                 {message.message_id && (

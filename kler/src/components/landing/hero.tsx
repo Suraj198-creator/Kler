@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { BookText, Search, Code, Webhook, GitBranch, Database, BookOpen, Send } from 'lucide-react'
+import { BookText, Search, Code, Webhook, GitBranch, Database, Send } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { getCurrentUser, supabase } from '@/lib/supabase'
 import type { Conversation } from '@/lib/types'
@@ -13,7 +13,7 @@ export default function Hero() {
   const [prompt, setPrompt] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [userId, setUserId] = useState<string | null>(null)
+
 
   useEffect(() => {
     // Check if user is logged in and load conversations
@@ -21,7 +21,7 @@ export default function Hero() {
       const user = await getCurrentUser()
       setIsLoggedIn(!!user)
       if (user) {
-        setUserId(user.id)
+
         // Load recent conversations
         const { data } = await supabase
           .from('conversations')

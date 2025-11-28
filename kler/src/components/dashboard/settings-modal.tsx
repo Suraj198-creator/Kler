@@ -1,7 +1,7 @@
 // src/components/dashboard/settings-modal.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, User, Lock, Bell, Trash2, Save, Upload } from 'lucide-react'
 import { getCurrentUser, getProfile, supabase, signOut } from '@/lib/supabase'
@@ -39,13 +39,7 @@ export function SettingsModal({ isOpen, onClose, onProfileUpdate }: SettingsModa
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [productUpdates, setProductUpdates] = useState(true)
 
-  useEffect(() => {
-    if (isOpen) {
-      loadProfile()
-    }
-  }, [isOpen])
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     const user = await getCurrentUser()
     if (!user) {
       router.push('/login')
@@ -65,7 +59,15 @@ export function SettingsModal({ isOpen, onClose, onProfileUpdate }: SettingsModa
     }
 
     setLoading(false)
-  }
+  }, [router])
+
+  useEffect(() => {
+    if (isOpen) {
+      loadProfile()
+    }
+  }, [isOpen, loadProfile])
+
+
 
   const showMessage = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text })
@@ -117,9 +119,10 @@ export function SettingsModal({ isOpen, onClose, onProfileUpdate }: SettingsModa
         console.log('Calling onProfileUpdate')
         await onProfileUpdate()
       }
-    } catch (error: any) {
-      console.error('Error updating profile:', error)
-      showMessage('error', error.message || 'Failed to update profile')
+    } catch (error: unknown) {
+      const err = error as Error
+      console.error('Error updating profile:', err)
+      showMessage('error', err.message || 'Failed to update profile')
     } finally {
       setSaving(false)
     }
@@ -148,8 +151,9 @@ export function SettingsModal({ isOpen, onClose, onProfileUpdate }: SettingsModa
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to change password')
+    } catch (error: unknown) {
+      const err = error as Error
+      showMessage('error', err.message || 'Failed to change password')
     } finally {
       setSaving(false)
     }
@@ -174,8 +178,9 @@ export function SettingsModal({ isOpen, onClose, onProfileUpdate }: SettingsModa
       // Sign out
       await signOut()
       router.push('/')
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to delete account')
+    } catch (error: unknown) {
+      const err = error as Error
+      showMessage('error', err.message || 'Failed to delete account')
       setSaving(false)
     }
   }

@@ -71,6 +71,7 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Left side: Logo + Nav links */}
           <div className="flex items-center gap-8">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Kler" className="h-12 w-auto" />
             <div className="hidden md:flex items-center gap-6">
               <Link href="#features" className="text-sm text-gray-600 hover:text-black">

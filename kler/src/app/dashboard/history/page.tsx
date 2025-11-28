@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Pin, Trash2, FileText, Calendar, CheckSquare, Square } from 'lucide-react'
 import { getCurrentUser, supabase } from '@/lib/supabase'
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Conversation } from '@/lib/types'
 import { format } from 'date-fns'
+
+export const dynamic = 'force-dynamic'
 
 export default function HistoryPage() {
   const router = useRouter()
@@ -17,10 +19,6 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
-
-  useEffect(() => {
-    loadConversations()
-  }, [])
 
   useEffect(() => {
     if (searchQuery) {
@@ -33,7 +31,8 @@ export default function HistoryPage() {
     }
   }, [searchQuery, conversations])
 
-  const loadConversations = async () => {
+
+  const loadConversations = useCallback(async () => {
     const user = await getCurrentUser()
     if (!user) {
       router.push('/login')
@@ -49,7 +48,11 @@ export default function HistoryPage() {
     setConversations(data || [])
     setFilteredConversations(data || [])
     setLoading(false)
-  }
+  }, [router])
+
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
 
   const handlePin = async (convId: string, isPinned: boolean) => {
     await supabase
@@ -352,11 +355,10 @@ function ConversationCard({
 
   return (
     <div
-      className={`group flex items-center gap-4 rounded-xl border p-4 transition-all ${
-        isSelected
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
-      }`}
+      className={`group flex items-center gap-4 rounded-xl border p-4 transition-all ${isSelected
+        ? 'border-blue-500 bg-blue-50'
+        : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+        }`}
     >
       {selectionMode && (
         <button
@@ -388,11 +390,10 @@ function ConversationCard({
         <div className="flex items-center gap-2">
           <button
             onClick={onPin}
-            className={`rounded-lg p-2 transition-colors ${
-              conversation.is_pinned
-                ? 'text-yellow-600 hover:bg-yellow-50'
-                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-            }`}
+            className={`rounded-lg p-2 transition-colors ${conversation.is_pinned
+              ? 'text-yellow-600 hover:bg-yellow-50'
+              : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+              }`}
             title={conversation.is_pinned ? 'Unpin' : 'Pin'}
           >
             <Pin className="h-4 w-4" fill={conversation.is_pinned ? 'currentColor' : 'none'} />

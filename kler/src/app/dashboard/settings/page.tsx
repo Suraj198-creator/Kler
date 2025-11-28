@@ -1,7 +1,7 @@
 // src/app/dashboard/settings/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Lock, Bell, Trash2, Save, Upload } from 'lucide-react'
 import { getCurrentUser, getProfile, supabase, signOut } from '@/lib/supabase'
@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Profile } from '@/lib/types'
 import { cn } from '@/lib/utils'
+
+export const dynamic = 'force-dynamic'
 
 type TabType = 'account' | 'security' | 'preferences'
 
@@ -33,11 +35,7 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [productUpdates, setProductUpdates] = useState(true)
 
-  useEffect(() => {
-    loadProfile()
-  }, [])
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     const user = await getCurrentUser()
     if (!user) {
       router.push('/login')
@@ -53,7 +51,13 @@ export default function SettingsPage() {
     }
 
     setLoading(false)
-  }
+  }, [router])
+
+  useEffect(() => {
+    loadProfile()
+  }, [loadProfile])
+
+
 
   const showMessage = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text })
@@ -74,8 +78,9 @@ export default function SettingsPage() {
 
       showMessage('success', 'Profile updated successfully!')
       loadProfile()
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to update profile')
+    } catch (error: unknown) {
+      const err = error as Error
+      showMessage('error', err.message || 'Failed to update profile')
     } finally {
       setSaving(false)
     }
@@ -104,8 +109,9 @@ export default function SettingsPage() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to change password')
+    } catch (error: unknown) {
+      const err = error as Error
+      showMessage('error', err.message || 'Failed to change password')
     } finally {
       setSaving(false)
     }
@@ -130,8 +136,9 @@ export default function SettingsPage() {
       // Sign out
       await signOut()
       router.push('/')
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to delete account')
+    } catch (error: unknown) {
+      const err = error as Error
+      showMessage('error', err.message || 'Failed to delete account')
       setSaving(false)
     }
   }

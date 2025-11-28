@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { createSubscriptionCheckout, createCreditPackCheckout, getCreditBalance, createCustomerPortalSession } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
 
+export const dynamic = 'force-dynamic'
+
 export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null)
   const [currentPlan, setCurrentPlan] = useState<string>('free')

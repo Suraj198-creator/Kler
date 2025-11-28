@@ -463,7 +463,8 @@ Output structure: The id for the api documentation to use from the <docs> data. 
         if response2.status_code == 200:
             doc_text = response2.text
             print(f"Successfully retrieved documentation ({len(doc_text)} characters)")
-            return doc_text
+            # Return both doc_text and doc_name
+            return {"text": doc_text, "doc_name": doc_name}
         else:
             print(f"Failed to retrieve documentation: status {response2.status_code}")
             return f"Error: Failed to retrieve documentation (status {response2.status_code})"

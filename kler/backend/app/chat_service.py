@@ -46,30 +46,40 @@ class ChatService:
             await self.github_client.connect()
             print("Connected to GitHub MCP")
 
-            # Get GitHub tools
+            # Get GitHub tools - filter to only include read/search operations
             github_tools = await self.github_client.list_tools()
-            self.anthropic_tools = [{
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.inputSchema
-            } for tool in github_tools]
 
-            # Add custom tools
+            # Allowed GitHub tools - only read/search operations, no create/delete/update
+            allowed_github_tools = {
+                'search_repositories',
+                'get_file_contents',
+                'search_code',
+                'list_commits',
+                'get_commit',
+                'list_issues',
+                'search_issues'
+            }
+
+            # Start with custom tools first (higher priority)
+            self.anthropic_tools = []
+
+            # 1. Documentation retrieval - for official API docs
             self.anthropic_tools.append({
                 "name": "retrieve_documentation",
-                "description": "Retrieve external API documentation for setup guides, OAuth/authentication instructions, or technical references not available in the repository. Use this when you need documentation about APIs, SDKs, or technical concepts.",
+                "description": "Retrieve official API documentation (e.g., Telegram Bot API, Stripe API, Twitter API, GitHub API docs). Use this FIRST when the user asks about APIs, SDKs, webhooks, authentication, or needs setup guides. This fetches official documentation from API providers.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Documentation topic to search for (e.g., 'Twitter OAuth setup', 'LinkedIn Ads API authentication', 'Stripe payment integration')"
+                            "description": "API/SDK name and topic (e.g., 'Telegram Bot API webhooks', 'GitHub webhooks API', 'Stripe payment intents')"
                         }
                     },
                     "required": ["query"]
                 }
             })
 
+            # 2. Full context retrieval - for conversation history
             self.anthropic_tools.append({
                 "name": "retrieve_full_context",
                 "description": "Retrieve full details from previous conversation when summary is insufficient.",
@@ -84,6 +94,15 @@ class ChatService:
                     "required": ["id"]
                 }
             })
+
+            # 3. Add filtered GitHub tools (read-only)
+            github_tool_list = [{
+                "name": tool.name,
+                "description": f"GitHub: {tool.description}" if not tool.description.startswith("GitHub") else tool.description,
+                "input_schema": tool.inputSchema
+            } for tool in github_tools if tool.name in allowed_github_tools]
+
+            self.anthropic_tools.extend(github_tool_list)
 
             print(f"Tools initialized: {len(self.anthropic_tools)} total")
 
@@ -256,6 +275,16 @@ class ChatService:
                 response = self.anthropic_client.messages.create(
                     model="claude-haiku-4-5-20251001",
                     max_tokens=3000,
+                    system="""You are an expert AI coding assistant. Write clean, efficient, and well-optimized code. Prioritize performance and efficiency in all solutions.
+
+When exploring GitHub repositories:
+1. ALWAYS start by reading the README file (README.md, README.rst, etc.) to understand setup and usage
+2. Use search_code to find relevant implementations (e.g., search for "authentication", "oauth", "streaming")
+3. Read actual file contents from examples/ directories and relevant SDK files
+4. Make multiple get_file_contents calls to explore the codebase - don't stop at directory listings
+5. Look for setup.py, requirements.txt, or package.json to understand dependencies
+
+If get_file_contents returns a directory listing, follow up by reading specific files from that listing.""",
                     tools=self.anthropic_tools,
                     messages=working_messages,
                     temperature=0.0
@@ -338,7 +367,8 @@ class ChatService:
             self,
             message: str,
             user_id: str,
-            conversation_id: Optional[str] = None
+            conversation_id: Optional[str] = None,
+            doc_context: Optional[str] = None
     ):
         """
         Process a message and yield streaming events.
@@ -382,7 +412,7 @@ class ChatService:
         working_messages.append({"role": "user", "content": message})
 
         # TURN LOOP
-        max_turns = 10
+        max_turns = 15
         turn = 0
         tool_counter = 0
         final_response_text = ""
@@ -402,7 +432,17 @@ class ChatService:
                 # Use streaming API
                 stream = self.anthropic_client.messages.create(
                     model="claude-haiku-4-5-20251001",
-                    max_tokens=8000,
+                    max_tokens=32000,  # Increased from 8000 to prevent truncation
+                    system="""You are an expert AI coding assistant. Write clean, efficient, and well-optimized code. Prioritize performance and efficiency in all solutions.
+
+When exploring GitHub repositories:
+1. ALWAYS start by reading the README file (README.md, README.rst, etc.) to understand setup and usage
+2. Use search_code to find relevant implementations (e.g., search for "authentication", "oauth", "streaming")
+3. Read actual file contents from examples/ directories and relevant SDK files
+4. Make multiple get_file_contents calls to explore the codebase - don't stop at directory listings
+5. Look for setup.py, requirements.txt, or package.json to understand dependencies
+
+If get_file_contents returns a directory listing, follow up by reading specific files from that listing.""",
                     tools=self.anthropic_tools,
                     messages=working_messages,
                     temperature=0.0,
@@ -622,11 +662,52 @@ class ChatService:
             print(f"Retrieving documentation: {doc_query}")
 
             try:
-                doc_text = retrieve_doc(doc_query, self.anthropic_client)
-                if doc_text:
+                doc_result = await retrieve_doc(doc_query, self.anthropic_client)
+
+                # Handle different return types (dict on success, string on error)
+                if isinstance(doc_result, dict) and "text" in doc_result:
+                    doc_text = doc_result["text"]
+                    doc_name = doc_result.get("doc_name", doc_query)
+
                     chunks = chunk_by_section(doc_text)
                     print(f"Found {len(chunks)} documentation chunks")
 
+                    # Step 1: Decompose user query into multiple focused sub-queries
+                    print("Decomposing query into sub-queries...")
+                    decompose_response = self.anthropic_client.messages.create(
+                        model="claude-3-5-haiku-latest",
+                        system="You are an expert at breaking down complex queries into focused sub-queries for documentation search. Always respond with valid JSON only.",
+                        max_tokens=500,
+                        messages=[{
+                            "role": "user",
+                            "content": f"""Break down this query into 4-5 focused sub-queries that would help retrieve comprehensive documentation.
+
+Original query: {doc_query}
+
+Examples:
+<query>How to setup Telegram Bot API with webhooks</query>
+<answer>{{"sub_queries": ["Telegram Bot API authentication and setup", "Telegram Bot webhook configuration", "Telegram Bot webhook security", "Telegram Bot error handling", "Telegram Bot best practices"]}}</answer>
+
+<query>Twitter OAuth setup</query>
+<answer>{{"sub_queries": ["Twitter OAuth authentication flow", "Twitter API credentials and tokens", "Twitter OAuth callback handling", "Twitter API rate limits"]}}</answer>
+
+<query>Stripe payment integration</query>
+<answer>{{"sub_queries": ["Stripe payment intents API", "Stripe webhook events", "Stripe API authentication", "Stripe error handling", "Stripe checkout flow"]}}</answer>
+
+Return ONLY valid JSON with a "sub_queries" array. No explanation."""
+                        }]
+                    )
+
+                    try:
+                        decompose_json = decompose_response.content[0].text if decompose_response.content else ""
+                        sub_queries_data = json.loads(decompose_json)
+                        sub_queries = sub_queries_data.get("sub_queries", [doc_query])
+                        print(f"Decomposed into {len(sub_queries)} sub-queries: {sub_queries}")
+                    except (json.JSONDecodeError, Exception) as e:
+                        print(f"Failed to decompose query: {e}. Using original query.")
+                        sub_queries = [doc_query]
+
+                    # Step 2: Search each sub-query and get top 3 results
                     vector_index = VectorIndex(embedding_fn=generate_embedding)
                     bm25_index = BM25Index()
                     retriever = Retriever(
@@ -638,16 +719,36 @@ class ChatService:
                     )
 
                     retriever.add_documents([{"content": chunk} for chunk in chunks])
-                    rag_results = retriever.search(doc_query, k=6)
 
-                    rag_context = "\n\n".join([
-                        f"[Doc {i + 1}]\n{doc['content']}"
-                        for i, (doc, _) in enumerate(rag_results)
-                    ])
+                    all_results = []
+                    for sub_query in sub_queries:
+                        print(f"Searching documentation for: {sub_query}")
+                        sub_results = retriever.search(sub_query, k=3)
+                        all_results.append({
+                            "query": sub_query,
+                            "results": sub_results
+                        })
 
-                    formatted_content = f"Documentation for '{doc_query}':\n\n{rag_context}"
+                    # Step 3: Format results grouped by sub-query
+                    formatted_sections = []
+                    doc_counter = 1
+                    for query_result in all_results:
+                        results = query_result["results"]
+
+                        for doc, _ in results:
+                            formatted_sections.append(f"[Doc {doc_counter}]\n{doc['content']}")
+                            doc_counter += 1
+
+                    rag_context = "\n\n".join(formatted_sections)
+
+                    # Format sub-queries section
+                    sub_queries_text = "\n".join([f"  - {sq}" for sq in sub_queries])
+
+                    # Use doc_name instead of doc_query for display, include sub-queries
+                    formatted_content = f"Documentation for '{doc_name}':\n\nSearch queries used:\n{sub_queries_text}\n\n{rag_context}"
                 else:
-                    formatted_content = f"No documentation found for '{doc_query}'"
+                    # Error case - doc_result is a string error message
+                    formatted_content = str(doc_result) if doc_result else f"No documentation found for '{doc_query}'"
 
                 print("Documentation retrieved successfully")
                 return {

@@ -39,6 +39,7 @@ export default function LoginPage() {
         <div className="text-center">
           <div className="mb-4 inline-flex items-center justify-center">
             <Link href="/">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="Kler" className="h-16 w-auto" />
             </Link>
           </div>
@@ -111,7 +112,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>

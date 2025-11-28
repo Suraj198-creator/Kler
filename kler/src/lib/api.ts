@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || '/api'
 
 export async function sendMessage(
   message: string,
@@ -127,6 +127,7 @@ export async function sendMessageStream(
       type: 'error',
       content: 'Connection interrupted. The response may be incomplete. Please try again.',
       error_code: 'STREAM_ERROR'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
   } finally {
     reader.releaseLock()
@@ -187,7 +188,7 @@ export async function getCreditHistory(
   userId: string,
   limit: number = 50,
   offset: number = 0
-): Promise<{ transactions: Array<any> }> {
+): Promise<{ transactions: Array<unknown> }> {
   const response = await fetch(
     `${API_URL}/api/credits/history?user_id=${userId}&limit=${limit}&offset=${offset}`,
     {

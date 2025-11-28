@@ -11,6 +11,7 @@ import requests
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import anthropic
+import asyncio
 
 from app.chat_service import ChatService
 from app import credit_service, stripe_service
@@ -51,6 +52,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:3002",
         "https://your-production-domain.com"
     ],
     allow_credentials=True,
@@ -338,6 +340,9 @@ async def chat_stream(request: ChatRequest):
                 sse_data = f"data: {json.dumps(event)}\n\n"
                 print(f"[SSE MAIN] {time.time():.3f} - Yielding SSE event: {event.get('type')}")
                 yield sse_data
+                # Small delay to prevent buffering and ensure smooth streaming
+                # This forces the event to be flushed immediately rather than batched
+                await asyncio.sleep(0.001)  # 1ms delay
 
         except anthropic.APIStatusError as e:
             # Handle Anthropic API specific errors
@@ -411,8 +416,7 @@ async def search_docs(query: str):
 
         # Format results for frontend
         results = []
-        for item in data.get('results', [])[:10]: 
-            it # Limit to 10 results
+        for item in data.get('results', [])[:10]:  # Limit to 10 results
             results.append({
                 "id": item.get('id', ''),
                 "title": item.get('title', ''),

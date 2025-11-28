@@ -1,7 +1,8 @@
 'use client'
 
-import { Plus, History, Settings, CreditCard, X, PanelLeftClose, PanelLeftOpen, Search, LogOut, Crown, ChevronUp, ChevronDown as ChevronDownIcon, SquarePen, MoreVertical, Pin, Trash2, Edit2 } from 'lucide-react'
+import { History, Settings, X, PanelLeftClose, PanelLeftOpen, Search, LogOut, Crown, ChevronUp, SquarePen, MoreVertical, Pin, Trash2, Edit2 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,7 +31,6 @@ export function Sidebar({
   conversations,
   profile,
   onNewChat,
-  onRefresh,
   onClose,
   onToggleCollapse,
   onToggleExpand,
@@ -174,8 +174,8 @@ export function Sidebar({
 
   const filteredConversations = searchQuery
     ? conversations.filter(conv =>
-        conv.title.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      conv.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : conversations
 
   // Collapsed view - only logo and profile
@@ -190,9 +190,11 @@ export function Sidebar({
             title="Expand sidebar"
           >
             {/* Logo - hides on hover */}
-            <img
+            <Image
               src="/logo.png"
               alt="KlerAI"
+              width={40}
+              height={40}
               className="h-10 w-10 object-contain transition-opacity duration-200 group-hover:opacity-0"
             />
             {/* Expand icon - shows on hover */}
@@ -260,15 +262,15 @@ export function Sidebar({
       <div className="flex items-center justify-between p-4">
         {onClose ? (
           <>
-            <img src="/logo.png" alt="KlerAI" className="h-10 w-auto" />
+            <Image src="/logo.png" alt="KlerAI" width={100} height={40} className="h-10 w-auto" />
             <button onClick={onClose}>
               <X className="h-5 w-5" />
             </button>
           </>
         ) : (
           <>
-            <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="KlerAI" className="h-10 w-auto" />
+            <Link href="/dashboard">
+              <Image src="/logo.png" alt="KlerAI" width={100} height={40} className="h-10 w-auto" />
             </Link>
             {onToggleCollapse && (
               <button

@@ -63,9 +63,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     // Get text after last "/"
     const textAfterSlash = message.slice(lastSlashIndex + 1)
 
-    // If user typed something after "/" and pressed space (ends with space or has space in middle),
-    // they don't want doc search - just a regular slash
-    if (textAfterSlash.includes(' ')) {
+    // Double space closes the dropdown and exits search mode
+    // This allows single spaces for multi-word searches like "/stripe webhook"
+    if (textAfterSlash.includes('  ')) {
       setShowDocSearch(false)
       setDocResults([])
       if (selectedDoc) {
@@ -93,13 +93,13 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     // Show dropdown for slash command
     if (textAfterSlash.length > 0) {
       setShowDocSearch(true)
-      // Trigger debounced search
+      // Trigger debounced search (700ms delay to reduce API calls)
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current)
       }
       searchTimeoutRef.current = setTimeout(() => {
         performSearch(textAfterSlash.trim())
-      }, 300)
+      }, 700)
     } else {
       // Just "/" typed, show placeholder
       setShowDocSearch(true)

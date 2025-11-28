@@ -44,8 +44,8 @@ export default function SignupPage() {
     if (signUpError) {
       // Check if the error is due to duplicate email
       if (signUpError.message.toLowerCase().includes('already registered') ||
-          signUpError.message.toLowerCase().includes('already exists') ||
-          signUpError.message.toLowerCase().includes('user already registered')) {
+        signUpError.message.toLowerCase().includes('already exists') ||
+        signUpError.message.toLowerCase().includes('user already registered')) {
         setError('This email is already registered. Please login to your account instead.')
       } else {
         setError(signUpError.message)
@@ -67,6 +67,7 @@ export default function SignupPage() {
         <div className="text-center">
           <div className="mb-4 inline-flex items-center justify-center">
             <Link href="/">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="Kler" className="h-16 w-auto" />
             </Link>
           </div>
@@ -188,7 +189,7 @@ export default function SignupPage() {
               </label>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-black text-white hover:bg-gray-800" disabled={loading}>
               {loading ? 'Creating account...' : 'Create account'}
             </Button>
           </form>

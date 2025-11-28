@@ -54,20 +54,20 @@ KlerAI maintains **two parallel conversation histories** for every user:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   USER CONVERSATION                     │
+│                   USER CONVERSATION                      │
 ├─────────────────────────────────────────────────────────┤
-│                                                         │
+│                                                          │
 │  TRACK 1: FULL HISTORY                                  │
-│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"     │
-│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)   │
-│  └─ [ID:q1-r] Assistant: (3500 char implementation)     │
-│                                                         │
-│  TRACK 2: SUMMARISED HISTORY (sent to AI)               │
-│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"     │
-│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"     │
-│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"     │
-│                                                         │
-│  TOKEN SAVINGS: ~60%                                    │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)  │
+│  └─ [ID:q1-r] Assistant: (3500 char implementation)    │
+│                                                          │
+│  TRACK 2: SUMMARISED HISTORY (sent to AI)              │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
+│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"    │
+│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"    │
+│                                                          │
+│  TOKEN SAVINGS: ~60%                                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -92,20 +92,20 @@ KlerAI uses a **turn-based orchestration loop** that enables complex workflows:
 ┌─────────────────────────────────────────────────────────┐
 │ TURN 1: Claude analyses query                           │
 │ └─> Calls retrieve_documentation tool                   │
-│     └─> Context7 API fetches Stripe docs                │
-│     └─> Hybrid search (BM25 + Vector embeddings)        │
-│     └─> Claude reranks top 6 results                    │
-│     └─> Returns documentation                           │
+│     └─> Context7 API fetches Stripe docs               │
+│     └─> Hybrid search (BM25 + Vector embeddings)       │
+│     └─> Claude reranks top 6 results                   │
+│     └─> Returns documentation                          │
 ├─────────────────────────────────────────────────────────┤
 │ TURN 2: Claude searches for code examples               │
-│ └─> Calls search_repositories (GitHub MCP)              │
-│     └─> Searches GitHub via Docker MCP server           │
-│     └─> Finds Stripe webhook examples                   │
-│     └─> Automatically summarises results                │
+│ └─> Calls search_repositories (GitHub MCP)             │
+│     └─> Searches GitHub via Docker MCP server          │
+│     └─> Finds Stripe webhook examples                  │
+│     └─> Automatically summarises results               │
 ├─────────────────────────────────────────────────────────┤
 │ TURN 3: Claude synthesises final response               │
-│ └─> Combines docs + code examples                       │
-│ └─> Provides complete implementation guide              │
+│ └─> Combines docs + code examples                      │
+│ └─> Provides complete implementation guide             │
 └─────────────────────────────────────────────────────────┘
 
 Cost: 5 (base) + 10 (docs) + 3 (GitHub) = 18 credits
@@ -506,6 +506,30 @@ Decomposes complex queries into focused sub-queries, searches each independently
 - Claude sees summary, calls `retrieve_full_context(id="q1-r")`
 - Returns complete code
 - Cost: 5 credits (no new tools)
+
+---
+
+## Project Structure
+
+```
+klerAI/
+├── kler/
+│   ├── src/                      # Next.js frontend
+│   │   ├── app/
+│   │   │   ├── dashboard/        # Chat interface
+│   │   │   └── (landing)/        # Public pages
+│   │   ├── components/           # React components
+│   │   └── lib/                  # API clients, types
+│   └── backend/
+│       └── app/
+│           ├── main.py           # FastAPI app
+│           ├── chat_service.py   # Turn loop orchestration
+│           └── rag_pipeline.py   # Search indexes & RAG
+│
+├── TOOL_ORCHESTRATION_FLOW.md   # Detailed architecture diagrams
+├── CLAUDE.md                     # Development guide
+└── README.md                     # This file
+```
 
 ---
 
