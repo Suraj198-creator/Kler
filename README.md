@@ -54,20 +54,20 @@ KlerAI maintains **two parallel conversation histories** for every user:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   USER CONVERSATION                      │
+│                   USER CONVERSATION                     │
 ├─────────────────────────────────────────────────────────┤
-│                                                          │
+│                                                         │
 │  TRACK 1: FULL HISTORY                                  │
-│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
-│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)  │
-│  └─ [ID:q1-r] Assistant: (3500 char implementation)    │
-│                                                          │
-│  TRACK 2: SUMMARISED HISTORY (sent to AI)              │
-│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"    │
-│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"    │
-│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"    │
-│                                                          │
-│  TOKEN SAVINGS: ~60%                                     │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"     │
+│  ├─ [ID:q1-t1] Tool: (5000 char GitHub search result)   │
+│  └─ [ID:q1-r] Assistant: (3500 char implementation)     │
+│                                                         │
+│  TRACK 2: SUMMARISED HISTORY (sent to AI)               │
+│  ├─ [ID:q1] User: "How to setup OAuth for Twitter?"     │
+│  ├─ [ID:q1-t1-sum] "Searched GitHub, found 3 repos"     │
+│  └─ [ID:q1-r-sum] "Explained OAuth2 flow with code"     │
+│                                                         │
+│  TOKEN SAVINGS: ~60%                                    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -92,20 +92,20 @@ KlerAI uses a **turn-based orchestration loop** that enables complex workflows:
 ┌─────────────────────────────────────────────────────────┐
 │ TURN 1: Claude analyses query                           │
 │ └─> Calls retrieve_documentation tool                   │
-│     └─> Context7 API fetches Stripe docs               │
-│     └─> Hybrid search (BM25 + Vector embeddings)       │
-│     └─> Claude reranks top 6 results                   │
-│     └─> Returns documentation                          │
+│     └─> Context7 API fetches Stripe docs                │
+│     └─> Hybrid search (BM25 + Vector embeddings)        │
+│     └─> Claude reranks top 6 results                    │
+│     └─> Returns documentation                           │
 ├─────────────────────────────────────────────────────────┤
 │ TURN 2: Claude searches for code examples               │
-│ └─> Calls search_repositories (GitHub MCP)             │
-│     └─> Searches GitHub via Docker MCP server          │
-│     └─> Finds Stripe webhook examples                  │
-│     └─> Automatically summarises results               │
+│ └─> Calls search_repositories (GitHub MCP)              │
+│     └─> Searches GitHub via Docker MCP server           │
+│     └─> Finds Stripe webhook examples                   │
+│     └─> Automatically summarises results                │
 ├─────────────────────────────────────────────────────────┤
 │ TURN 3: Claude synthesises final response               │
-│ └─> Combines docs + code examples                      │
-│ └─> Provides complete implementation guide             │
+│ └─> Combines docs + code examples                       │
+│ └─> Provides complete implementation guide              │
 └─────────────────────────────────────────────────────────┘
 
 Cost: 5 (base) + 10 (docs) + 3 (GitHub) = 18 credits
@@ -394,7 +394,7 @@ Becomes:
 
 Each sub-query searches for top 3 chunks → **12-15 total chunks** with better topical coverage
 
-### 🔒 GitHub Tool Filtering
+### GitHub Tool Filtering
 
 Security-first approach: Only 7 read-only GitHub tools are available (from 92 total):
 - ✅ search_repositories, get_file_contents, search_code
@@ -535,11 +535,11 @@ klerAI/
 
 ## Why This Architecture Works
 
-✅ **Scalable**: In-memory histories (can add Redis/PostgreSQL)
-✅ **Cost-Efficient**: 60% token reduction without losing accuracy
-✅ **Observable**: Clear ID-based audit trail
-✅ **Extensible**: Easy to add tools via MCP protocol
-✅ **User-Friendly**: Streaming responses, transparent costs
+**Scalable**: In-memory histories (can add Redis/PostgreSQL)
+**Cost-Efficient**: 60% token reduction without losing accuracy
+**Observable**: Clear ID-based audit trail
+**Extensible**: Easy to add tools via MCP protocol
+**User-Friendly**: Streaming responses, transparent costs
 
 ---
 
